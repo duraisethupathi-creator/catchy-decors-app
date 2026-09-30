@@ -13,7 +13,8 @@
     "test:charges": "tsc src/utils/charges.ts src/utils/calculations.ts scripts/test-charges.ts --outDir .tmp-charges --module commonjs --target es2020 --esModuleInterop --skipLibCheck --moduleResolution node && node .tmp-charges/scripts/test-charges.js",
     "test:pdf": "tsc src/services/pdfService.ts scripts/check-pdf.ts --outDir .tmp-pdf --module commonjs --target es2020 --esModuleInterop --skipLibCheck --moduleResolution node && node .tmp-pdf/scripts/check-pdf.js",
     "test:logo": "tsx scripts/test-logo-pdf.ts",
-    "test:excel-logo": "tsx scripts/test-excel-logo.ts"
+    "test:excel-logo": "tsx scripts/test-excel-logo.ts",
+    "android:fingerprint": "cd android && ./gradlew signingReport"
   },
   "dependencies": {
     "@expo/vector-icons": "~14.0.4",
