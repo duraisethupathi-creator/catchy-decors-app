@@ -39,6 +39,9 @@ jobs:
         run: npx expo prebuild --platform android --no-install
       - name: Make Gradle executable
         run: chmod +x android/gradlew
+
+      - name: Show Android signing fingerprint
+        run: npm run android:fingerprint
       - name: Build release APK
         working-directory: android
         run: ./gradlew assembleRelease --no-daemon
