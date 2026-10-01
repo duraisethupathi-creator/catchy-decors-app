@@ -1,21 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import * as AuthSession from 'expo-auth-session';
 import { router } from 'expo-router';
 import { Button, Card } from '../../src/components/common';
 import { toast, confirm } from '../../src/components/common/ui';
 import { colors } from '../../src/constants/colors';
 import {
-  GOOGLE_DISCOVERY,
-  GOOGLE_SCOPES,
   clearSession,
-  exchangeCode,
-  fetchUserInfo,
-  getActiveClientId,
-  getRedirectUri,
   getStoredSession,
   isGoogleConfigured,
-  saveSession,
+  signInWithGoogle,
 } from '../../src/services/googleAuth';
 import { downloadBackup, getLatestBackupInfo, testDriveAccess, uploadBackup, type DriveFile } from '../../src/services/googleDrive';
 import { backupFileName, collectBackup, restoreBackup, summariseBackup } from '../../src/services/backupService';
@@ -24,67 +17,30 @@ import { useAuth } from '../../src/context/AuthContext';
 export default function GoogleSettings() {
   const { refresh } = useAuth();
   const configured = isGoogleConfigured();
-  const redirectUri = getRedirectUri();
 
   const [email, setEmail] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [lastFile, setLastFile] = useState<DriveFile | null>(null);
   const [backupTime, setBackupTime] = useState<string | null>(null);
 
-  const clientId = getActiveClientId();
-  const [request, response, promptAsync] = AuthSession.useAuthRequest(
-    {
-      clientId,
-      scopes: GOOGLE_SCOPES,
-      redirectUri,
-      responseType: AuthSession.ResponseType.Code,
-      usePKCE: true,
-    },
-    GOOGLE_DISCOVERY
-  );
-
-  const loadState = useCallback(async () => {
-    const s = await getStoredSession();
-    setEmail(s?.email ?? null);
-    if (s) setLastFile(await getLatestBackupInfo());
-  }, []);
-
-  useEffect(() => {
-    loadState();
-  }, [loadState]);
-
-  useEffect(() => {
-    (async () => {
-      if (response?.type !== 'success') return;
-      setBusy(true);
-      try {
-        const code = response.params.code;
-        const direct = response.params.access_token;
-        if (code && request?.codeVerifier) {
-          const s = await exchangeCode(code, request.codeVerifier, redirectUri, clientId);
-          if (!s) {
-            toast('Token exchange failed — check the OAuth client setup');
-            return;
-          }
-          const info = await fetchUserInfo(s.accessToken);
-          await saveSession({ ...s, ...info });
-          setEmail(info.email ?? null);
-          toast(`Signed in as ${info.email ?? 'Google user'}`);
-        } else if (direct) {
-          const info = await fetchUserInfo(direct);
-          await saveSession({ accessToken: direct, ...info });
-          setEmail(info.email ?? null);
-          toast(`Signed in as ${info.email ?? 'Google user'}`);
-        } else {
-          toast('No authorization code returned');
-        }
-        await refresh();
-        await loadState();
-      } finally {
-        setBusy(false);
+  async function googleSignIn() {
+    setBusy(true);
+    try {
+      const session = await signInWithGoogle();
+      if (!session) {
+        toast('Google sign-in was cancelled');
+        return;
       }
-    })();
-  }, [response, request, redirectUri, clientId, refresh, loadState]);
+      setEmail(session.email ?? null);
+      toast(`Signed in as ${session.email ?? 'Google user'}`);
+      await refresh();
+      await loadState();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Google sign-in failed');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function signOut() {
     await clearSession();
@@ -197,8 +153,8 @@ export default function GoogleSettings() {
                 <Button
                   title={busy ? 'Opening Google…' : 'Sign in with Google'}
                   icon="logo-google"
-                  onPress={() => promptAsync()}
-                  disabled={busy || !request}
+                  onPress={googleSignIn}
+                  disabled={busy}
                 />
               </>
             )}
@@ -227,11 +183,6 @@ export default function GoogleSettings() {
                 </View>
               </Card>
 
-              <Card style={{ marginTop: 14 }}>
-                <Text style={styles.section}>Diagnostics</Text>
-                <Text style={styles.mono}>Redirect URI: {redirectUri}</Text>
-                <Text style={styles.mono}>Client ID: {clientId ? `${clientId.slice(0, 18)}…` : '—'}</Text>
-              </Card>
             </>
           ) : null}
         </>
