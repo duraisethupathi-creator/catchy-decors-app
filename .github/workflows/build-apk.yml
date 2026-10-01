@@ -42,6 +42,9 @@ jobs:
 
       - name: Show Android signing fingerprint
         run: npm run android:fingerprint
+      - name: Show signing certificate SHA-1
+        working-directory: android
+        run: ./gradlew signingReport --no-daemon
       - name: Build release APK
         working-directory: android
         run: ./gradlew assembleRelease --no-daemon
