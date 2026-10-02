@@ -3,6 +3,7 @@ import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
 import { Button, Card, Field, ChipGroup } from '../../src/components/common';
 import { EmptyState, toast, confirm } from '../../src/components/common/ui';
@@ -194,10 +195,13 @@ export default function Preview() {
     setCharges((c) => ({ ...c, extras: c.extras.filter((r) => r.id !== id) }));
     setDirty(true);
   }
+  const curtainParts = round2((draft?.items ?? []).filter((i) => i.product_type === 'curtains').reduce((s, i) => s + (Number(i.part) || 0), 0));
+  const effectiveCharges: ChargesBundle = { ...charges, stitchingQty: charges.stitchingQty.trim() || String(curtainParts || '') };
+
   function resetStitchingQty() {
-    setCharges((c) => ({ ...c, stitchingQty: '' }));
+    setCharges((c) => ({ ...c, stitchingQty: String(curtainParts || '') }));
     setDirty(true);
-    toast('Stitching quantity restored to formula (width / 20)');
+    toast('Stitching quantity restored from Curtain Parts');
   }
   function resetQtyToFormula(it: Measurement) {
     updItem(it.id, { quantity: formulaQty(it) });
@@ -211,7 +215,7 @@ export default function Preview() {
   // ---------- live totals (from edited draft, nothing persisted yet) ----------
   const liveItems = (draft.items ?? []).map((it) => ({ ...it, liveTotal: calculateTotal(it.quantity, it.price) }));
   const liveAccs = (draft.accessories ?? []).map((a) => ({ ...a, liveTotal: calculateTotal(a.quantity, a.price) }));
-  const liveBundle = buildCharges(charges);
+  const liveBundle = buildCharges(effectiveCharges);
   const liveSubtotal = round2(liveItems.reduce((s, i) => s + i.liveTotal, 0));
   const liveAccTotal = round2(liveAccs.reduce((s, a) => s + a.liveTotal, 0));
   const liveGrand = computeGrandTotal(liveSubtotal, liveAccTotal, liveBundle.totals);
@@ -292,8 +296,19 @@ export default function Preview() {
   }
 
   async function shareOrSave(uri: string, fname: string): Promise<void> {
+    const dir = FileSystem.cacheDirectory || FileSystem.documentDirectory;
+    const namedUri = dir ? `${dir}${fname}` : uri;
+    if (namedUri !== uri) {
+      try {
+        await FileSystem.deleteAsync(namedUri, { idempotent: true });
+        await FileSystem.copyAsync({ from: uri, to: namedUri });
+      } catch {
+        // Fall back to the generated URI if the cache copy is unavailable.
+      }
+    }
+    const shareUri = namedUri !== uri ? namedUri : uri;
     if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(uri, {
+      await Sharing.shareAsync(shareUri, {
         mimeType: 'application/pdf',
         dialogTitle: `${fname} — share via WhatsApp, Email or Save`,
         UTI: 'com.adobe.pdf',
@@ -500,24 +515,24 @@ export default function Preview() {
             <Field label="Price / Window" value={charges.fittingPrice} onChangeText={(t) => { setCharges({ ...charges, fittingPrice: numericInput(t) }); setDirty(true); }} keyboardType="numeric" />
           </View>
         </View>
+        <View style={styles.partsBox}>
+          <Text style={styles.partsLabel}>Curtain Parts</Text>
+          <Text style={styles.partsValue}>{curtainParts}</Text>
+          <Text style={styles.partsHint}>From Curtain Measurements · decimal supported</Text>
+        </View>
         <View style={{ flexDirection: 'row' }}>
           <View style={{ flex: 1, marginRight: 8 }}>
-            <Field label="Stitching — Curtain Width (in)" value={charges.stitchingWidth} onChangeText={(t) => { setCharges({ ...charges, stitchingWidth: numericInput(t) }); setDirty(true); }} keyboardType="numeric" />
+            <Field label="Stitching Qty (Part) — editable" value={charges.stitchingQty} onChangeText={(t) => { setCharges({ ...charges, stitchingQty: numericInput(t) }); setDirty(true); }} keyboardType="numeric" placeholder={`auto = ${curtainParts}`} />
           </View>
           <View style={{ flex: 1 }}>
-            <Field label="Stitching Price / mtr" value={charges.stitchingPrice} onChangeText={(t) => { setCharges({ ...charges, stitchingPrice: numericInput(t) }); setDirty(true); }} keyboardType="numeric" />
+            <Field label="Stitching Price / Part" value={charges.stitchingPrice} onChangeText={(t) => { setCharges({ ...charges, stitchingPrice: numericInput(t) }); setDirty(true); }} keyboardType="numeric" />
           </View>
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
-          <View style={{ flex: 1, marginRight: 8 }}>
-            <Field label="Stitching Qty (mtr) — editable" value={charges.stitchingQty} onChangeText={(t) => { setCharges({ ...charges, stitchingQty: numericInput(t) }); setDirty(true); }} keyboardType="numeric" placeholder={`auto = ${stitchingQuantity(charges)}`} />
-          </View>
-          <TouchableOpacity onPress={resetStitchingQty} style={styles.resetBtn}>
-            <Ionicons name="refresh" size={18} color={colors.navy} />
-            <Text style={styles.resetText}>↻ W/20</Text>
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.formulaNote}>Stitching total = {stitchingQuantity(charges)} × {charges.stitchingPrice || 0} = {formatINR(liveBundle.totals.stitching)} (blank qty follows width / 20)</Text>
+        <TouchableOpacity onPress={resetStitchingQty} style={styles.resetBtn}>
+          <Ionicons name="refresh" size={18} color={colors.navy} />
+          <Text style={styles.resetText}>↻ Curtain Parts</Text>
+        </TouchableOpacity>
+        <Text style={styles.formulaNote}>Stitching total = {stitchingQuantity(effectiveCharges)} Part × {charges.stitchingPrice || 0} = {formatINR(liveBundle.totals.stitching)}</Text>
         <Field label="Transport — Description" value={charges.transportDesc} onChangeText={(t) => { setCharges({ ...charges, transportDesc: t }); setDirty(true); }} placeholder="Transport Charges" />
         <Field label="Transport (₹)" value={charges.transport} onChangeText={(t) => { setCharges({ ...charges, transport: numericInput(t) }); setDirty(true); }} keyboardType="numeric" />
         <Field label="Additional — Description" value={charges.additionalDesc} onChangeText={(t) => { setCharges({ ...charges, additionalDesc: t }); setDirty(true); }} />
@@ -717,6 +732,10 @@ const styles = StyleSheet.create({
   },
   dirtyText: { color: '#C77700', fontSize: 12.5, fontWeight: '600', flex: 1 },
   subsection: { fontWeight: '800', color: colors.navy, marginTop: 12, marginBottom: 6, fontSize: 13.5 },
+  partsBox: { padding: 12, borderRadius: 10, backgroundColor: '#F4F7FB', marginBottom: 10 },
+  partsLabel: { fontSize: 12, color: colors.muted },
+  partsValue: { fontSize: 22, fontWeight: '700', color: colors.navy },
+  partsHint: { fontSize: 11, color: colors.muted, marginTop: 2 },
   formulaNote: { fontSize: 11.5, color: '#C77700', fontWeight: '600', lineHeight: 16, marginBottom: 6 },
   note: { color: colors.textMuted, fontSize: 13 },
   rowHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
