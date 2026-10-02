@@ -27,16 +27,18 @@ export function getGoogleConfig(): GoogleConfig {
 
 export function isGoogleConfigured(): boolean {
   const c = getGoogleConfig();
-  return Boolean(c.webClientId && c.androidClientId);
+  return Boolean(c.androidClientId);
 }
 
 let configured = false;
 export function configureGoogleSignIn(): void {
   if (configured) return;
-  const c = getGoogleConfig();
+  // This app only needs an on-device OAuth access token for Drive appDataFolder.
+  // A Web client ID is only needed by the legacy Google Sign-In API for ID tokens
+  // or server/offline auth, neither of which we use here.
   GoogleSignin.configure({
-    webClientId: c.webClientId,
     scopes: GOOGLE_SCOPES,
+    offlineAccess: false,
   });
   configured = true;
 }
