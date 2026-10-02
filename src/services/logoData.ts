@@ -13,13 +13,22 @@ export async function readLogoDataUri(uri: string | undefined | null): Promise<s
     try {
       const asset = Asset.fromModule(require('../../assets/images/logo.png'));
       await asset.downloadAsync();
-      uri = asset.localUri ?? asset.uri;
+      // Expo assets may expose only a bundled asset URI in release builds.
+      // getLocalUri() resolves/copies it to a readable file before base64 encoding.
+      uri = asset.localUri ?? (await asset.downloadAsync()).localUri ?? asset.uri;
     } catch {
       return '';
     }
   }
   if (uri.startsWith('data:')) return uri;
   try {
+    // asset:/ and other bundled URIs are not always readable by FileSystem.
+    // Resolve the packaged default logo through expo-asset one more time when needed.
+    if (!uri.startsWith('file:') && !uri.startsWith('content:')) {
+      const asset = Asset.fromModule(require('../../assets/images/logo.png'));
+      await asset.downloadAsync();
+      if (asset.localUri) uri = asset.localUri;
+    }
     const opts = { encoding: 'base64' } as unknown as Parameters<typeof FileSystem.readAsStringAsync>[1];
     const b64 = await FileSystem.readAsStringAsync(uri, opts);
     const ext = (uri.split('?')[0].split('.').pop() || 'png').toLowerCase();
