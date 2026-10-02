@@ -13,9 +13,7 @@ export async function readLogoDataUri(uri: string | undefined | null): Promise<s
     try {
       const asset = Asset.fromModule(require('../../assets/images/logo.png'));
       await asset.downloadAsync();
-      // Expo assets may expose only a bundled asset URI in release builds.
-      // getLocalUri() resolves/copies it to a readable file before base64 encoding.
-      uri = asset.localUri ?? (await asset.downloadAsync()).localUri ?? asset.uri;
+      uri = asset.localUri ?? asset.uri;
     } catch {
       return '';
     }
