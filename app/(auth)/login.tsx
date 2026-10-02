@@ -121,13 +121,6 @@ export default function Login() {
                 </TouchableOpacity>
               </View>
             ) : null}
-
-            <View style={styles.hint}>
-              <Text style={styles.hintTitle}>Demo accounts</Text>
-              <Text style={styles.hintText}>Admin — username: admin · password: admin123</Text>
-              <Text style={styles.hintText}>Staff — username: staff · password: staff123</Text>
-              <Text style={styles.hintNote}>Admin: full access · Staff: customers, measurements, quotations</Text>
-            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
