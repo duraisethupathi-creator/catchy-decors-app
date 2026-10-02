@@ -81,3 +81,21 @@ export function backupFileName(nameHint?: string): string {
   const clean = (nameHint ?? 'CatchyDecors').replace(/[^a-zA-Z0-9]/g, '');
   return `CatchyDecors-Backup-${clean}-${date}.json`;
 }
+
+
+const AUTO_BACKUP_KEY = 'cd_auto_backup';
+const AUTO_BACKUP_LAST_KEY = 'cd_auto_backup_last';
+
+/** Run at most one Drive backup per local calendar day when enabled and signed in. */
+export async function runDailyAutoBackup(): Promise<boolean> {
+  const enabled = await AsyncStorage.getItem(AUTO_BACKUP_KEY);
+  if (enabled !== '1') return false;
+  const today = new Date().toISOString().slice(0, 10);
+  if ((await AsyncStorage.getItem(AUTO_BACKUP_LAST_KEY)) === today) return false;
+  const { getStoredSession } = await import('./googleAuth');
+  if (!(await getStoredSession())) return false;
+  const { uploadBackup } = await import('./googleDrive');
+  await uploadBackup(await collectBackup());
+  await AsyncStorage.setItem(AUTO_BACKUP_LAST_KEY, today);
+  return true;
+}
