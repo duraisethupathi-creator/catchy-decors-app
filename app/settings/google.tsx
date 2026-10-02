@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { Button, Card } from '../../src/components/common';
 import { toast, confirm } from '../../src/components/common/ui';
@@ -22,6 +23,17 @@ export default function GoogleSettings() {
   const [busy, setBusy] = useState(false);
   const [lastFile, setLastFile] = useState<DriveFile | null>(null);
   const [backupTime, setBackupTime] = useState<string | null>(null);
+  const [autoBackup, setAutoBackup] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem('cd_auto_backup').then((v) => setAutoBackup(v === '1'));
+  }, []);
+
+  async function toggleAutoBackup(value: boolean) {
+    setAutoBackup(value);
+    await AsyncStorage.setItem('cd_auto_backup', value ? '1' : '0');
+    toast(value ? 'Daily auto backup enabled' : 'Auto backup disabled');
+  }
 
   async function googleSignIn() {
     setBusy(true);
@@ -175,6 +187,13 @@ export default function GoogleSettings() {
                   <Text style={styles.statusValue}>{backupTime ?? '—'}</Text>
                 </View>
                 <Text style={styles.hint}>Filename in Drive: {backupFileName()}</Text>
+                <View style={styles.autoRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.autoTitle}>Daily Auto Backup</Text>
+                    <Text style={styles.hint}>Automatically backs up at most once per day while the app is open and Google is signed in.</Text>
+                  </View>
+                  <Switch value={autoBackup} onValueChange={toggleAutoBackup} />
+                </View>
                 <View style={{ gap: 10, marginTop: 8 }}>
                   <Button title={busy ? 'Working…' : 'Back up now to Google Drive'} icon="cloud-upload" variant="accent" onPress={backupNow} disabled={busy} />
                   <Button title="Restore from Google Drive" icon="cloud-download" variant="outline" onPress={restore} disabled={busy} />
@@ -208,5 +227,7 @@ const styles = StyleSheet.create({
   statusLabel: { color: colors.textMuted, fontSize: 13 },
   statusValue: { color: colors.textDark, fontWeight: '700', fontSize: 13 },
   email: { color: colors.textDark, fontWeight: '700', fontSize: 13, flexShrink: 1, marginLeft: 10 },
+  autoRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12, marginBottom: 4 },
+  autoTitle: { color: colors.textDark, fontWeight: '800', fontSize: 13.5 },
   mono: { fontSize: 11.5, color: colors.textMuted, marginTop: 4 },
 });
