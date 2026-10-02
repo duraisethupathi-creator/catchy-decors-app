@@ -48,6 +48,15 @@ jobs:
       - name: Build release APK
         working-directory: android
         run: ./gradlew assembleRelease --no-daemon
+      - name: Verify actual release APK identity
+        run: |
+          APK="android/app/build/outputs/apk/release/app-release.apk"
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)
+          AAPT=$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -1)
+          echo "=== APK PACKAGE ==="
+          "$AAPT" dump badging "$APK" | head -1
+          echo "=== APK SIGNING CERTIFICATE ==="
+          "$APKSIGNER" verify --print-certs "$APK"
       - name: Rename APK
         run: cp android/app/build/outputs/apk/release/app-release.apk Catchy-Decors.apk
       - name: Upload APK artifact
