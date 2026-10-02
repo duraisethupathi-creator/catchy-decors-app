@@ -88,7 +88,9 @@ export default function NewQuotation() {
 
   const subtotal = useMemo(() => items.reduce((s, i) => s + i.total, 0), [items]);
   const accessoriesTotal = useMemo(() => accRows.reduce((s, r) => s + accTotal(r), 0), [accRows]);
-  const bundle = useMemo(() => buildCharges(charges), [charges]);
+  const curtainParts = useMemo(() => round2(items.filter((i) => i.product_type === 'curtains').reduce((s, i) => s + (i.part || 0), 0)), [items]);
+  const effectiveCharges = useMemo(() => ({ ...charges, stitchingQty: String(curtainParts || '') }), [charges, curtainParts]);
+  const bundle = useMemo(() => buildCharges(effectiveCharges), [effectiveCharges]);
   const grandTotal = computeGrandTotal(subtotal, accessoriesTotal, bundle.totals);
   /* Requirement 5: fabric quantity that belongs in the Other Charges area. */
   const fabricNote = (() => {
@@ -313,29 +315,22 @@ export default function NewQuotation() {
         <Text style={styles.formulaNote}>Total = Windows × Price = {formatINR(bundle.totals.fitting)}</Text>
 
         <Text style={styles.chargeTitle}>Stitching</Text>
+        <View style={styles.partsBox}>
+          <Text style={styles.partsLabel}>Curtain Parts</Text>
+          <Text style={styles.partsValue}>{curtainParts}</Text>
+          <Text style={styles.partsHint}>From Curtain Measurements · decimal supported</Text>
+        </View>
         <View style={{ flexDirection: 'row' }}>
           <View style={{ flex: 1, marginRight: 8 }}>
-            <Field label="Curtain Width (in)" value={charges.stitchingWidth} onChangeText={(t) => setCharges({ ...charges, stitchingWidth: numericInput(t) })} keyboardType="numeric" />
+            <Field label="Stitching Qty (Part)" value={String(curtainParts)} editable={false} />
           </View>
           <View style={{ flex: 1 }}>
-            <Field label="Stitching Price / mtr" value={charges.stitchingPrice} onChangeText={(t) => setCharges({ ...charges, stitchingPrice: numericInput(t) })} keyboardType="numeric" />
+            <Field label="Stitching Price / Part" value={charges.stitchingPrice} onChangeText={(t) => setCharges({ ...charges, stitchingPrice: numericInput(t) })} keyboardType="numeric" />
           </View>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
-          <View style={{ flex: 1, marginRight: 8 }}>
-            <Field
-              label="Stitching Qty (mtr) — editable"
-              value={charges.stitchingQty}
-              onChangeText={(t) => setCharges({ ...charges, stitchingQty: numericInput(t) })}
-              keyboardType="numeric"
-              placeholder={`auto = ${stitchingQuantity(charges)}`}
-            />
-          </View>
-          <Text onPress={() => setCharges({ ...charges, stitchingQty: '' })} style={styles.resetInline}>↻ W/20</Text>
         </View>
         <Field label="Stitching — Description" value={charges.stitchingDesc} onChangeText={(t) => setCharges({ ...charges, stitchingDesc: t })} placeholder="Stitching Charges" />
         <Text style={styles.formulaNote}>
-          Total = {stitchingQuantity(charges)} × {charges.stitchingPrice || 0} = {formatINR(bundle.totals.stitching)} · blank qty follows width / 20
+          Total = {curtainParts} Part × {charges.stitchingPrice || 0} = {formatINR(bundle.totals.stitching)}
         </Text>
 
         <Text style={styles.chargeTitle}>Transport</Text>
@@ -435,6 +430,10 @@ const styles = StyleSheet.create({
   miniTotal: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
   formulaNote: { fontSize: 11.5, color: '#C77700', marginTop: 2, marginBottom: 8, fontWeight: '600' },
   chargeTitle: { fontWeight: '800', color: colors.navy, marginTop: 10, marginBottom: 4, fontSize: 13.5 },
+  partsBox: { backgroundColor: colors.chipBg, borderRadius: 12, padding: 12, marginBottom: 10 },
+  partsLabel: { fontSize: 11.5, color: colors.textMuted, fontWeight: '700' },
+  partsValue: { fontSize: 22, color: colors.navy, fontWeight: '900', marginTop: 2 },
+  partsHint: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
   extraHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 10 },
   extraSum: { color: colors.orange, fontWeight: '800', fontSize: 12.5, marginBottom: 4 },
   extraRow: { flexDirection: 'row', alignItems: 'flex-end' },
