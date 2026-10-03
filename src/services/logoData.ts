@@ -27,8 +27,9 @@ export async function readLogoDataUri(uri: string | undefined | null): Promise<s
       await asset.downloadAsync();
       if (asset.localUri) uri = asset.localUri;
     }
-    const opts = { encoding: 'base64' } as unknown as Parameters<typeof FileSystem.readAsStringAsync>[1];
-    const b64 = await FileSystem.readAsStringAsync(uri, opts);
+    const b64 = await FileSystem.readAsStringAsync(uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
     const ext = (uri.split('?')[0].split('.').pop() || 'png').toLowerCase();
     const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : ext === 'webp' ? 'image/webp' : 'image/png';
     return `data:${mime};base64,${b64}`;
