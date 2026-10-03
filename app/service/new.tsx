@@ -15,7 +15,8 @@ const categories: ServiceCategory[] = ['Curtain Service','Blinds Service','Mosqu
 const num = (v:string) => Math.max(0, Number(v) || 0);
 
 export default function NewServiceBill() {
-  const settings = useSettings();
+  const settingsContext = useSettings();
+  const settings = settingsContext.settings;
   const [billNo,setBillNo]=useState('SRV-0001');
   const [customerName,setCustomerName]=useState(''); const [phone,setPhone]=useState(''); const [address,setAddress]=useState('');
   const [category,setCategory]=useState<ServiceCategory>('Curtain Service'); const [description,setDescription]=useState('');
