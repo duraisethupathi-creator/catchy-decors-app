@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -16,6 +16,7 @@ import { gstInputFromQuotation } from '../../src/services/excelService';
 import { formatINR, formatDate } from '../../src/utils/currency';
 import { getProduct } from '../../src/constants/products';
 import type { Quotation } from '../../src/types/quotation';
+import { addPayment, paymentSummary, type PaymentEntry, type PaymentMode } from '../../src/services/paymentService';
 
 export default function QuotationDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -23,10 +24,18 @@ export default function QuotationDetail() {
   const [busy, setBusy] = useState(false);
   const { settings } = useSettings();
   const [logoDataUri, setLogoDataUri] = useState('');
+  const [payments, setPayments] = useState<PaymentEntry[]>([]);
+  const [paid, setPaid] = useState(0);
+  const [balance, setBalance] = useState(0);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentMode, setPaymentMode] = useState<PaymentMode>('UPI');
 
   useFocusEffect(
     useCallback(() => {
-      getQuotation(String(id)).then(setQ);
+      getQuotation(String(id)).then(async (row) => {
+        setQ(row);
+        if (row) { const p = await paymentSummary(row.id, row.grand_total); setPayments(p.rows); setPaid(p.paid); setBalance(p.balance); }
+      });
       readLogoDataUri(settings.profile.logoUri).then(setLogoDataUri);
     }, [id, settings.profile.logoUri])
   );
@@ -90,6 +99,21 @@ export default function QuotationDetail() {
           <Text style={styles.grandLbl}>GRAND TOTAL</Text>
           <Text style={styles.grandVal}>{formatINR(q.grand_total)}</Text>
         </View>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.sec}>Payment & Balance</Text>
+        <View style={styles.paySummary}><View><Text style={styles.payLabel}>Paid</Text><Text style={styles.paid}>{formatINR(paid)}</Text></View><View><Text style={styles.payLabel}>Balance</Text><Text style={styles.balance}>{formatINR(balance)}</Text></View></View>
+        <TextInput style={styles.payInput} value={paymentAmount} onChangeText={setPaymentAmount} keyboardType="decimal-pad" placeholder="Enter payment amount" />
+        <View style={styles.modeRow}>{(['Cash','UPI','Bank'] as PaymentMode[]).map(m=><TouchableOpacity key={m} onPress={()=>setPaymentMode(m)} style={[styles.mode, paymentMode===m&&styles.modeOn]}><Text style={[styles.modeText,paymentMode===m&&styles.modeTextOn]}>{m}</Text></TouchableOpacity>)}</View>
+        <Button title="Add Payment" icon="cash" variant="accent" onPress={async()=>{
+          const amount=Number(paymentAmount)||0;
+          if(amount<=0) return Alert.alert('Payment','Enter a valid amount.');
+          if(amount>balance) return Alert.alert('Payment',`Balance amount is ${formatINR(balance)}`);
+          await addPayment({quotationId:q.id,amount,mode:paymentMode});
+          const p=await paymentSummary(q.id,q.grand_total); setPayments(p.rows); setPaid(p.paid); setBalance(p.balance); setPaymentAmount(''); toast('Payment saved');
+        }}/>
+        {payments.slice(0,5).map(p=><View key={p.id} style={styles.paymentRow}><Text style={styles.itemText}>{new Date(p.date).toLocaleDateString('en-IN')} · {p.mode}</Text><Text style={styles.itemTotal}>{formatINR(p.amount)}</Text></View>)}
       </View>
 
       <View style={{ gap: 10, marginTop: 16 }}>
@@ -164,4 +188,7 @@ const styles = StyleSheet.create({
   itemTotal: { fontWeight: '700', color: colors.navy },
   grandLbl: { fontWeight: '900', color: colors.navy, fontSize: 14.5 },
   grandVal: { fontWeight: '900', color: colors.red, fontSize: 16.5 },
+  paySummary:{flexDirection:'row',justifyContent:'space-between',backgroundColor:'#F6F8FC',borderRadius:12,padding:14,marginBottom:12},
+  payLabel:{fontSize:11,color:colors.textMuted},paid:{fontSize:18,fontWeight:'900',color:colors.success,marginTop:2},balance:{fontSize:18,fontWeight:'900',color:colors.red,marginTop:2},
+  payInput:{borderWidth:1,borderColor:'#DDE2EA',borderRadius:12,padding:12,marginBottom:10,color:colors.text},modeRow:{flexDirection:'row',gap:8,marginBottom:12},mode:{paddingHorizontal:16,paddingVertical:8,borderRadius:999,backgroundColor:'#E9EDF4'},modeOn:{backgroundColor:colors.navy},modeText:{color:colors.textMuted,fontWeight:'700'},modeTextOn:{color:'#fff'},paymentRow:{flexDirection:'row',justifyContent:'space-between',paddingVertical:7,borderBottomWidth:1,borderBottomColor:'#EEF1F5'},
 });
