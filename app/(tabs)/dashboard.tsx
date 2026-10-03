@@ -48,6 +48,7 @@ export default function Dashboard() {
     { icon: 'person-add', label: 'Add Customer', route: '/customer/new', tint: colors.navy },
     { icon: 'resize', label: 'New Measurement', route: '/customer/new?mode=measurement', tint: colors.orange },
     { icon: 'document', label: 'Create Quotation', route: '/customer/new?mode=quotation', tint: colors.red },
+    { icon: 'construct', label: 'Service Bill', route: '/service/new', tint: '#0E9A4C' },
   ];
 
   return (
