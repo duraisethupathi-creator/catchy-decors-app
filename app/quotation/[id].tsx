@@ -7,7 +7,7 @@ import { Button } from '../../src/components/common';
 import { EmptyState, toast, confirm } from '../../src/components/common/ui';
 import { StatusChip } from '../../src/components/common';
 import { colors } from '../../src/constants/colors';
-import { getQuotation, deleteQuotation, duplicateQuotation, updateQuotationStatus } from '../../src/services/quotationService';
+import { getQuotation, deleteQuotation, duplicateQuotation, updateQuotationStatus, updateWorkStatus } from '../../src/services/quotationService';
 import { buildQuotationHtml, quotationFileName } from '../../src/services/pdfService';
 import { useSettings } from '../../src/context/SettingsContext';
 import { readLogoDataUri } from '../../src/services/logoData';
@@ -15,7 +15,7 @@ import { shareQuotationExcel } from '../../src/services/excelShare';
 import { gstInputFromQuotation } from '../../src/services/excelService';
 import { formatINR, formatDate } from '../../src/utils/currency';
 import { getProduct } from '../../src/constants/products';
-import type { Quotation } from '../../src/types/quotation';
+import type { Quotation, WorkStatus } from '../../src/types/quotation';
 import { addPayment, paymentSummary, type PaymentEntry, type PaymentMode } from '../../src/services/paymentService';
 
 export default function QuotationDetail() {
@@ -99,6 +99,17 @@ export default function QuotationDetail() {
           <Text style={styles.grandLbl}>GRAND TOTAL</Text>
           <Text style={styles.grandVal}>{formatINR(q.grand_total)}</Text>
         </View>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.sec}>Order / Work Status</Text>
+        <Text style={styles.workCurrent}>{(q.work_status ?? 'quotation').replace(/_/g, ' ').toUpperCase()}</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.workRow}>
+          {([
+            ['quotation','Quotation'],['confirmed','Confirmed'],['measurement','Measurement'],['material_ordered','Material Ordered'],
+            ['production','Production'],['installation','Installation'],['completed','Completed'],['payment_pending','Payment Pending'],['paid','Paid']
+          ] as [WorkStatus,string][]).map(([value,label])=><TouchableOpacity key={value} onPress={async()=>{await updateWorkStatus(q.id,value);setQ(await getQuotation(q.id));toast(`Work status: ${label}`);}} style={[styles.workChip,(q.work_status??'quotation')===value&&styles.workChipOn]}><Text style={[styles.workChipText,(q.work_status??'quotation')===value&&styles.workChipTextOn]}>{label}</Text></TouchableOpacity>)}
+        </ScrollView>
       </View>
 
       <View style={styles.card}>
@@ -188,6 +199,7 @@ const styles = StyleSheet.create({
   itemTotal: { fontWeight: '700', color: colors.navy },
   grandLbl: { fontWeight: '900', color: colors.navy, fontSize: 14.5 },
   grandVal: { fontWeight: '900', color: colors.red, fontSize: 16.5 },
+  workCurrent:{fontSize:16,fontWeight:'900',color:colors.orange,marginBottom:10},workRow:{gap:8,paddingBottom:4},workChip:{paddingHorizontal:13,paddingVertical:9,borderRadius:999,backgroundColor:'#E9EDF4'},workChipOn:{backgroundColor:colors.navy},workChipText:{fontSize:12,fontWeight:'700',color:colors.textMuted},workChipTextOn:{color:'#fff'},
   paySummary:{flexDirection:'row',justifyContent:'space-between',backgroundColor:'#F6F8FC',borderRadius:12,padding:14,marginBottom:12},
   payLabel:{fontSize:11,color:colors.textMuted},paid:{fontSize:18,fontWeight:'900',color:colors.success,marginTop:2},balance:{fontSize:18,fontWeight:'900',color:colors.red,marginTop:2},
   payInput:{borderWidth:1,borderColor:'#DDE2EA',borderRadius:12,padding:12,marginBottom:10,color:colors.text},modeRow:{flexDirection:'row',gap:8,marginBottom:12},mode:{paddingHorizontal:16,paddingVertical:8,borderRadius:999,backgroundColor:'#E9EDF4'},modeOn:{backgroundColor:colors.navy},modeText:{color:colors.textMuted,fontWeight:'700'},modeTextOn:{color:'#fff'},paymentRow:{flexDirection:'row',justifyContent:'space-between',paddingVertical:7,borderBottomWidth:1,borderBottomColor:'#EEF1F5'},
