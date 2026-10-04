@@ -27,6 +27,7 @@ export default function RootLayout() {
           <Stack.Screen name="quotation/preview" />
           <Stack.Screen name="quotation/[id]" />
           <Stack.Screen name="service/new" />
+          <Stack.Screen name="expense/index" />
           <Stack.Screen name="settings/profile" />
           <Stack.Screen name="settings/template" />
           <Stack.Screen name="settings/google" />
