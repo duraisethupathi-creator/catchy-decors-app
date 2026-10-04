@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { Linking } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Button } from '../../src/components/common';
@@ -125,6 +126,23 @@ export default function QuotationDetail() {
           const p=await paymentSummary(q.id,q.grand_total); setPayments(p.rows); setPaid(p.paid); setBalance(p.balance); setPaymentAmount(''); toast('Payment saved');
         }}/>
         {payments.slice(0,5).map(p=><View key={p.id} style={styles.paymentRow}><Text style={styles.itemText}>{new Date(p.date).toLocaleDateString('en-IN')} · {p.mode}</Text><Text style={styles.itemTotal}>{formatINR(p.amount)}</Text></View>)}
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.sec}>WhatsApp & Due Reminder</Text>
+        <Button title="Send Balance Reminder" icon="logo-whatsapp" variant="accent" disabled={balance <= 0} onPress={async()=>{
+          const phone=String(q.customer_phone??'').replace(/\D/g,'');
+          if(!phone) return Alert.alert('WhatsApp','Customer mobile number is missing.');
+          const mobile=phone.length===10?`91${phone}`:phone;
+          const msg=`Hello ${q.customer_name||''}, Catchy Decors reminder: ${q.quotation_number} total ${formatINR(q.grand_total)}, paid ${formatINR(paid)}, balance ${formatINR(balance)}. Kindly arrange the pending payment. Thank you - Catchy Decors.`;
+          const url=`https://wa.me/${mobile}?text=${encodeURIComponent(msg)}`;
+          if(await Linking.canOpenURL(url)) await Linking.openURL(url); else Alert.alert('WhatsApp','Unable to open WhatsApp.');
+        }}/>
+        <View style={{height:8}}/>
+        <Button title="Share Quotation PDF to WhatsApp" icon="logo-whatsapp" variant="outline" disabled={busy} onPress={async()=>{
+          const uri=await pdf();
+          if(uri && await Sharing.isAvailableAsync()) await Sharing.shareAsync(uri,{mimeType:'application/pdf',dialogTitle:`WhatsApp - ${quotationFileName(q)}`});
+        }}/>
       </View>
 
       <View style={{ gap: 10, marginTop: 16 }}>
