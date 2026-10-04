@@ -11,11 +11,13 @@ import { countCustomers, countNewCustomersThisMonth } from '../../src/services/c
 import { getQuotations, getMonthSales } from '../../src/services/quotationService';
 import { formatINR } from '../../src/utils/currency';
 import { getSyncState, type SyncState } from '../../src/services/db';
+import { getPendingPayments, type PendingPayment } from '../../src/services/paymentService';
 
 export default function Dashboard() {
   const { user } = useAuth();
   const [stats, setStats] = useState({ customers: 0, newC: 0, quotations: 0, monthSales: 0 });
   const [sync, setSync] = useState<SyncState>({ pending: 0, lastSyncAt: null });
+  const [dues, setDues] = useState<PendingPayment[]>([]);
 
   useFocusEffect(
     useCallback(() => {
@@ -28,6 +30,7 @@ export default function Dashboard() {
         ]);
         setStats({ customers, newC, quotations: quotes.length, monthSales: month });
         setSync(await getSyncState());
+        setDues(await getPendingPayments());
       })();
     }, [])
   );
@@ -105,6 +108,11 @@ export default function Dashboard() {
         ))}
       </View>
 
+      <Text style={styles.section}>Pending Payments</Text>
+      <View style={styles.dueSummary}><View><Text style={styles.dueLabel}>Customers Due</Text><Text style={styles.dueCount}>{dues.length}</Text></View><View style={{alignItems:'flex-end'}}><Text style={styles.dueLabel}>Total Balance</Text><Text style={styles.dueTotal}>{formatINR(dues.reduce((s,d)=>s+d.balance,0))}</Text></View></View>
+      {dues.slice(0,5).map(d=><TouchableOpacity key={d.quotationId} style={styles.dueRow} onPress={()=>router.push(`/quotation/${d.quotationId}` as never)}><View style={{flex:1}}><Text style={styles.dueName}>{d.customerName||'Customer'}</Text><Text style={styles.dueMeta}>{d.quotationNumber} · Paid {formatINR(d.paid)}</Text></View><Text style={styles.dueAmount}>{formatINR(d.balance)}</Text><Ionicons name="chevron-forward" size={17} color={colors.textMuted}/></TouchableOpacity>)}
+      {dues.length===0?<View style={styles.noDue}><Ionicons name="checkmark-circle" size={20} color="#0E9A4C"/><Text style={styles.noDueText}>No pending payments</Text></View>:null}
+
       <View style={styles.footerCard}>
         <Ionicons name="business" size={18} color={colors.navy} />
         <View style={{ flex: 1, marginLeft: 10 }}>
@@ -169,6 +177,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   actionText: { color: '#fff', fontWeight: '800', fontSize: 15.5 },
+  dueSummary:{marginHorizontal:16,backgroundColor:colors.navy,borderRadius:16,padding:16,flexDirection:'row',justifyContent:'space-between'},dueLabel:{color:'rgba(255,255,255,.7)',fontSize:11},dueCount:{color:'#fff',fontSize:24,fontWeight:'900',marginTop:3},dueTotal:{color:colors.gold,fontSize:20,fontWeight:'900',marginTop:3},dueRow:{marginHorizontal:16,marginTop:8,backgroundColor:'#fff',borderRadius:13,padding:13,flexDirection:'row',alignItems:'center',gap:8},dueName:{fontWeight:'800',color:colors.text,fontSize:13.5},dueMeta:{color:colors.textMuted,fontSize:11.5,marginTop:3},dueAmount:{fontWeight:'900',color:colors.red,fontSize:14},noDue:{marginHorizontal:16,backgroundColor:'#fff',borderRadius:13,padding:14,flexDirection:'row',alignItems:'center',gap:8},noDueText:{color:'#0E9A4C',fontWeight:'700'},
   footerCard: {
     flexDirection: 'row',
     backgroundColor: '#fff',
