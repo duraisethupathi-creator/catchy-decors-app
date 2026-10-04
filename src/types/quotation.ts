@@ -12,6 +12,8 @@ export interface QuotationTotals {
   grand_total: number;
 }
 
+export type WorkStatus = 'quotation' | 'confirmed' | 'measurement' | 'material_ordered' | 'production' | 'installation' | 'completed' | 'payment_pending' | 'paid';
+
 export interface Quotation {
   id: string;
   quotation_number: string;
@@ -25,6 +27,8 @@ export interface Quotation {
   discount: number;
   grand_total: number;
   status: QuotationStatus;
+  /** Operational order/workflow status, independent from quotation approval status. */
+  work_status?: WorkStatus;
   created_at?: string;
   items?: Measurement[];
   accessories?: Accessory[];
