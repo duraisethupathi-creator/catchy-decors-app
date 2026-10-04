@@ -11,7 +11,7 @@ import {
   setSupabaseConfig,
   testConnection,
 } from '../../src/services/supabaseClient';
-import { getSyncState, onSyncStateChange, pushToSupabase, pullFromSupabase, type SyncState } from '../../src/services/db';
+import { autoSyncTwoDevices, getSyncState, onSyncStateChange, pushToSupabase, pullFromSupabase, type SyncState } from '../../src/services/db';
 
 export default function SupabaseSettings() {
   const [url, setUrl] = useState('');
@@ -88,6 +88,18 @@ export default function SupabaseSettings() {
     }
   }
 
+  async function syncNow() {
+    setBusy(true);
+    try {
+      setSummary(null);
+      const ok = await autoSyncTwoDevices();
+      setSync(await getSyncState());
+      toast(ok ? 'Two-device sync complete' : 'Sync could not complete. Check connection and cloud setup.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function forget() {
     await clearSupabaseConfig();
     setUrl('');
@@ -156,6 +168,13 @@ export default function SupabaseSettings() {
         {summary ? <Text style={styles.summary}>{summary}</Text> : null}
         <View style={{ gap: 10, marginTop: 8 }}>
           <Button
+            title={busy ? 'Syncing…' : 'Sync Now (Safe 2-Device)'}
+            icon="sync"
+            variant="accent"
+            onPress={syncNow}
+            disabled={busy || !connected}
+          />
+          <Button
             title={busy ? 'Working…' : 'Push Local → Cloud'}
             icon="cloud-upload"
             variant="accent"
@@ -171,8 +190,7 @@ export default function SupabaseSettings() {
           />
         </View>
         <Text style={styles.hint}>
-          Push uploads customers, quotations, measurements, accessories and settings using upsert on id.
-          Pull merges cloud rows into this device (cloud values win for the fields it returns).
+          Sync Now safely pulls newer cloud records first, then uploads queued local changes. Automatic sync also runs when the app opens, returns to foreground, and every 60 seconds. Manual Push/Pull remain available for recovery.
         </Text>
       </Card>
 
