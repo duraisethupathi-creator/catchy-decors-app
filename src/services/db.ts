@@ -212,6 +212,27 @@ export async function pullFromSupabase(): Promise<{ ok: boolean; detail: string 
   return { ok: failed === 0, detail: lines.join('\n') };
 }
 
+
+let autoSyncRunning = false;
+/** Two-device background sync: push this device first, then pull cloud changes. */
+export async function autoSyncTwoDevices(): Promise<boolean> {
+  if (autoSyncRunning) return false;
+  autoSyncRunning = true;
+  try {
+    await hydrateSupabaseConfig();
+    if (!isSupabaseConfigured()) return false;
+    await syncWithSupabase();
+    const pushed = await pushToSupabase();
+    if (!pushed.ok) return false;
+    const pulled = await pullFromSupabase();
+    return pulled.ok;
+  } catch {
+    return false;
+  } finally {
+    autoSyncRunning = false;
+  }
+}
+
 export function uuid(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
