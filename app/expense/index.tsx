@@ -1,5 +1,7 @@
 import React,{useCallback,useState} from 'react';
 import {Alert,ScrollView,StyleSheet,Text,TouchableOpacity,View} from 'react-native';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import {useFocusEffect} from 'expo-router';
 import {Button,Card,Field} from '../../src/components/common';
 import {colors} from '../../src/constants/colors';
@@ -11,11 +13,14 @@ const CATS:ExpenseCategory[]=['Material','Stitching','Transport','Installation',
 export default function Expenses(){
  const [rows,setRows]=useState<Expense[]>([]),[sales,setSales]=useState(0),[monthExpense,setMonthExpense]=useState(0);
  const [cat,setCat]=useState<ExpenseCategory>('Material'),[desc,setDesc]=useState(''),[amount,setAmount]=useState('');
+ const [period,setPeriod]=useState<'month'|'all'>('month');
  const load=useCallback(async()=>{const [e,s]=await Promise.all([getExpenseSummary(),getMonthSales()]);setRows(e.month);setMonthExpense(e.monthTotal);setSales(s)},[]);
  useFocusEffect(useCallback(()=>{load()},[load])); const profit=sales-monthExpense;
  return <ScrollView style={s.root} contentContainerStyle={{padding:16,paddingBottom:40}}>
   <Text style={s.title}>Expenses & Profit</Text><Text style={s.sub}>This month business summary</Text>
   <View style={s.summary}><View><Text style={s.lbl}>Sales</Text><Text style={s.sales}>{formatINR(sales)}</Text></View><View><Text style={s.lbl}>Expenses</Text><Text style={s.exp}>{formatINR(monthExpense)}</Text></View><View><Text style={s.lbl}>Net Profit</Text><Text style={[s.profit,profit<0&&{color:colors.red}]}>{formatINR(profit)}</Text></View></View>
+  <Card style={{marginTop:14}}><Text style={s.sec}>Business Report</Text><View style={s.chips}><TouchableOpacity onPress={()=>setPeriod('month')} style={[s.chip,period==='month'&&s.chipOn]}><Text style={[s.chipText,period==='month'&&s.chipTextOn]}>This Month</Text></TouchableOpacity><TouchableOpacity onPress={()=>setPeriod('all')} style={[s.chip,period==='all'&&s.chipOn]}><Text style={[s.chipText,period==='all'&&s.chipTextOn]}>All Records</Text></TouchableOpacity></View>
+  <Button title="Share Profit Report PDF" icon="share-social" variant="outline" onPress={async()=>{const e=await getExpenseSummary();const list=period==='month'?e.month:e.all;const expense=list.reduce((a,x)=>a+x.amount,0);const reportSales=period==='month'?sales:0;const title=period==='month'?'Monthly Profit Report':'Expense Report - All Records';const html=`<html><body style="font-family:Arial;padding:30px;color:#17204a"><h1>Catchy Decors</h1><h2>${title}</h2><p>Generated: ${new Date().toLocaleDateString('en-IN')}</p>${period==='month'?\`<h3>Sales: ${formatINR(reportSales)} &nbsp; Expenses: ${formatINR(expense)} &nbsp; Net Profit: ${formatINR(reportSales-expense)}</h3>\`:''}<table style="width:100%;border-collapse:collapse"><tr><th align="left">Date</th><th align="left">Category</th><th align="left">Description</th><th align="right">Amount</th></tr>${list.map(x=>\`<tr><td style="padding:7px 0;border-bottom:1px solid #ddd">${new Date(x.date).toLocaleDateString('en-IN')}</td><td>${x.category}</td><td>${x.description}</td><td align="right">${formatINR(x.amount)}</td></tr>\`).join('')}</table><h3 style="text-align:right">Total Expenses: ${formatINR(expense)}</h3></body></html>`;const {uri}=await Print.printToFileAsync({html});if(await Sharing.isAvailableAsync())await Sharing.shareAsync(uri,{mimeType:'application/pdf',dialogTitle:title});}}/></Card>
   <Card style={{marginTop:14}}><Text style={s.sec}>Add Expense</Text><View style={s.chips}>{CATS.map(x=><TouchableOpacity key={x} onPress={()=>setCat(x)} style={[s.chip,cat===x&&s.chipOn]}><Text style={[s.chipText,cat===x&&s.chipTextOn]}>{x}</Text></TouchableOpacity>)}</View>
   <Field label="Description" value={desc} onChangeText={setDesc} placeholder="e.g. Curtain fabric purchase"/><Field label="Amount (₹)" value={amount} onChangeText={t=>setAmount(numericInput(t))} keyboardType="decimal-pad"/>
   <Button title="Save Expense" icon="save" variant="accent" onPress={async()=>{const n=Number(amount)||0;if(n<=0)return Alert.alert('Expense','Enter a valid amount.');await addExpense({category:cat,description:desc.trim()||cat,amount:n});setDesc('');setAmount('');await load()}}/></Card>
