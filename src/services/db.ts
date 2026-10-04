@@ -97,6 +97,10 @@ const SYNC_TARGETS: { table: string; store: string }[] = [
   { table: 'quotations', store: 'cd_quotations' },
   { table: 'measurements', store: 'cd_measurements' },
   { table: 'accessories', store: 'cd_accessories' },
+  { table: 'payments', store: 'cd_payments' },
+  { table: 'expenses', store: 'cd_expenses' },
+  { table: 'rate_library', store: 'cd_rate_library' },
+  { table: 'service_bills', store: 'cd_service_bills' },
 ];
 
 /** Drop undefined / non-finite values so PostgREST never rejects a payload. */
