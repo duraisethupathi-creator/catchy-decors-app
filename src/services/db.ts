@@ -222,18 +222,21 @@ export async function pullFromSupabase(): Promise<{ ok: boolean; detail: string 
 
 
 let autoSyncRunning = false;
-/** Two-device background sync: push this device first, then pull cloud changes. */
+/** Two-device background sync.
+ * Pull first so the newest cloud timestamp wins before queued local records are sent.
+ * Pull refreshes each per-record cache key, so a stale queued edit cannot overwrite a
+ * newer version that another device already uploaded. New local-only rows stay queued
+ * and are uploaded immediately afterwards.
+ */
 export async function autoSyncTwoDevices(): Promise<boolean> {
   if (autoSyncRunning) return false;
   autoSyncRunning = true;
   try {
     await hydrateSupabaseConfig();
     if (!isSupabaseConfigured()) return false;
-    await syncWithSupabase();
-    const pushed = await pushToSupabase();
-    if (!pushed.ok) return false;
     const pulled = await pullFromSupabase();
-    return pulled.ok;
+    if (!pulled.ok) return false;
+    return await syncWithSupabase();
   } catch {
     return false;
   } finally {
