@@ -196,8 +196,16 @@ export async function pullFromSupabase(): Promise<{ ok: boolean; detail: string 
     for (const cloudRow of res.rows) {
       const id = String(cloudRow.id ?? '');
       if (!id) continue;
-      byId.set(id, { ...(byId.get(id) ?? {}), ...cleanRow(cloudRow) });
-      merged += 1;
+      const localRow = byId.get(id);
+      const cloudClean = cleanRow(cloudRow);
+      // Conflict protection: when both devices edited the same record,
+      // keep the row with the newest updated_at (fallback created_at/date).
+      const localStamp = String(localRow?.updated_at ?? localRow?.created_at ?? localRow?.date ?? '');
+      const cloudStamp = String(cloudClean.updated_at ?? cloudClean.created_at ?? cloudClean.date ?? '');
+      if (!localRow || !localStamp || !cloudStamp || cloudStamp >= localStamp) {
+        byId.set(id, { ...(localRow ?? {}), ...cloudClean });
+        merged += 1;
+      }
     }
     const rows = Array.from(byId.values());
     await AsyncStorage.setItem(store, JSON.stringify(rows));
