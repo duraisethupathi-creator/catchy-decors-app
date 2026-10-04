@@ -105,6 +105,17 @@ export async function updateQuotation(updated: Quotation): Promise<Quotation> {
   return merged;
 }
 
+export async function updateWorkStatus(id: string, workStatus: NonNullable<Quotation['work_status']>): Promise<void> {
+  const rows = await getQuotations();
+  const idx = rows.findIndex((q) => q.id === id);
+  if (idx >= 0) {
+    rows[idx].work_status = workStatus;
+    await saveAll(STORE, rows);
+    await AsyncStorage.setItem(`cd_quotations_${id}`, JSON.stringify(rows[idx]));
+    await queueForSync('quotations', id);
+  }
+}
+
 export async function updateQuotationStatus(id: string, status: QuotationStatus): Promise<void> {
   const rows = await getQuotations();
   const idx = rows.findIndex((q) => q.id === id);
