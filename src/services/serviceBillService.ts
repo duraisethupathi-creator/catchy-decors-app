@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { queueForSync } from './db';
 
 export type ServiceCategory = 'Curtain Service' | 'Blinds Service' | 'Mosquito Net Service' | 'Track Service' | 'Other Service';
 
@@ -19,6 +20,7 @@ export interface ServiceBill {
   subtotal: number;
   gstAmount: number;
   grandTotal: number;
+  updated_at?: string;
 }
 
 const KEY = 'cd_service_bills';
@@ -36,6 +38,9 @@ export async function nextServiceBillNumber(): Promise<string> {
 export async function saveServiceBill(bill: ServiceBill): Promise<void> {
   const rows = await getServiceBills();
   const i = rows.findIndex((r) => r.id === bill.id);
-  if (i >= 0) rows[i] = bill; else rows.unshift(bill);
+  const syncedBill: ServiceBill = { ...bill, updated_at: new Date().toISOString() };
+  if (i >= 0) rows[i] = syncedBill; else rows.unshift(syncedBill);
   await AsyncStorage.setItem(KEY, JSON.stringify(rows));
+  await AsyncStorage.setItem(`cd_service_bills_${bill.id}`, JSON.stringify(syncedBill));
+  await queueForSync('service_bills', bill.id);
 }
