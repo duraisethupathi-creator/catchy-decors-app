@@ -10,3 +10,12 @@ export async function addPayment(input:Omit<PaymentEntry,'id'|'date'>):Promise<P
  const p:PaymentEntry={...input,id:uuid(),date:new Date().toISOString()}; const rows=await getPayments(); rows.unshift(p); await AsyncStorage.setItem(KEY,JSON.stringify(rows)); return p;
 }
 export async function paymentSummary(quotationId:string,total:number){ const rows=await getPaymentsForQuotation(quotationId); const paid=rows.reduce((s,p)=>s+p.amount,0); return {rows,paid,balance:Math.max(0,total-paid)}; }
+
+export interface PendingPayment {
+  quotationId:string; quotationNumber:string; customerName:string; customerPhone:string; total:number; paid:number; balance:number;
+}
+export async function getPendingPayments():Promise<PendingPayment[]>{
+  const { getQuotations } = await import('./quotationService');
+  const quotes=await getQuotations(); const payments=await getPayments();
+  return quotes.map(q=>{const paid=payments.filter(p=>p.quotationId===q.id).reduce((s,p)=>s+p.amount,0);return {quotationId:q.id,quotationNumber:q.quotation_number,customerName:q.customer_name||'',customerPhone:q.customer_phone||'',total:q.grand_total,paid,balance:Math.max(0,q.grand_total-paid)};}).filter(x=>x.balance>0).sort((a,b)=>b.balance-a.balance);
+}
