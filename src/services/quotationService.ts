@@ -72,7 +72,8 @@ export async function saveQuotation(input: {
     charges: input.charges,
     site_location: (input.customer as { site_location?: string }).site_location,
     gst: input.gst,
-  };
+    updated_at: now,
+  } as Quotation;
   const rows = await getQuotations();
   const idx = rows.findIndex((q) => q.id === quotation.id);
   if (idx >= 0) rows[idx] = quotation;
@@ -97,7 +98,8 @@ export async function updateQuotation(updated: Quotation): Promise<Quotation> {
     ...updated,
     id: rows[idx].id,
     created_at: updated.created_at ?? rows[idx].created_at,
-  };
+    updated_at: new Date().toISOString(),
+  } as Quotation;
   rows[idx] = merged;
   await saveAll(STORE, rows);
   await AsyncStorage.setItem(`cd_quotations_${merged.id}`, JSON.stringify(merged));
@@ -110,6 +112,7 @@ export async function updateWorkStatus(id: string, workStatus: NonNullable<Quota
   const idx = rows.findIndex((q) => q.id === id);
   if (idx >= 0) {
     rows[idx].work_status = workStatus;
+    (rows[idx] as Quotation & { updated_at?: string }).updated_at = new Date().toISOString();
     await saveAll(STORE, rows);
     await AsyncStorage.setItem(`cd_quotations_${id}`, JSON.stringify(rows[idx]));
     await queueForSync('quotations', id);
@@ -121,7 +124,10 @@ export async function updateQuotationStatus(id: string, status: QuotationStatus)
   const idx = rows.findIndex((q) => q.id === id);
   if (idx >= 0) {
     rows[idx].status = status;
+    (rows[idx] as Quotation & { updated_at?: string }).updated_at = new Date().toISOString();
     await saveAll(STORE, rows);
+    await AsyncStorage.setItem(`cd_quotations_${id}`, JSON.stringify(rows[idx]));
+    await queueForSync('quotations', id);
   }
 }
 
