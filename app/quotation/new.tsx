@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -35,6 +35,7 @@ import { round2, calculateAccessories, calculateTotal } from '../../src/utils/ca
 import type { Customer } from '../../src/types/customer';
 import type { Measurement, Accessory, OtherCharge } from '../../src/types/measurement';
 import type { Quotation } from '../../src/types/quotation';
+import { getRatesForProduct, saveRate, type RateItem } from '../../src/services/rateLibraryService';
 
 const uid = () => Math.random().toString(36).slice(2);
 
@@ -54,6 +55,9 @@ export default function NewQuotation() {
   const [qNumber, setQNumber] = useState('');
   const [charges, setCharges] = useState<ChargesBundle>(emptyChargesBundle);
   const [saving, setSaving] = useState(false);
+  const [rateRows, setRateRows] = useState<RateItem[]>([]);
+  const [rateProduct, setRateProduct] = useState<'curtains'|'blinds'|'mosquito_net'|'wallpaper'|'headboard'|'flooring'|'accessories'>('curtains');
+  const [rateType, setRateType] = useState(''); const [rateMaterial,setRateMaterial]=useState(''); const [rateValue,setRateValue]=useState('');
 
   useFocusEffect(
     useCallback(() => {
@@ -271,6 +275,19 @@ export default function NewQuotation() {
         })
       )}
 
+      <SectionTitle><Text style={{ fontSize:16,fontWeight:'800',color:colors.text }}>Smart Rate Library</Text></SectionTitle>
+      <Card>
+        <Text style={styles.formulaNote}>Optional reference only — quotation rates remain fully editable.</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:7,marginBottom:10}}>
+          {(['curtains','blinds','mosquito_net','wallpaper','headboard','flooring','accessories'] as const).map(p=><TouchableOpacity key={p} onPress={async()=>{setRateProduct(p);setRateRows(await getRatesForProduct(p));}} style={[styles.rateChip,rateProduct===p&&styles.rateChipOn]}><Text style={[styles.rateChipText,rateProduct===p&&styles.rateChipTextOn]}>{getProduct(p).name}</Text></TouchableOpacity>)}
+        </ScrollView>
+        <Field label="Type / Model" value={rateType} onChangeText={setRateType} placeholder="e.g. Zebra / Blackout" />
+        <Field label="Material / Design Name" value={rateMaterial} onChangeText={setRateMaterial} placeholder="e.g. Premium Grey 01" />
+        <Field label="Reference Rate (₹)" value={rateValue} onChangeText={t=>setRateValue(numericInput(t))} keyboardType="numeric" />
+        <Button title="Save Rate for Future" icon="bookmark" variant="outline" onPress={async()=>{const rate=Number(rateValue)||0;if(!rateMaterial.trim()||rate<=0)return Alert.alert('Rate Library','Enter material/design name and rate.');await saveRate({product:rateProduct,type:rateType,material:rateMaterial,rate,unit:getProduct(rateProduct).qtyUnit});setRateRows(await getRatesForProduct(rateProduct));setRateMaterial('');setRateValue('');toast('Rate saved to library');}}/>
+        {rateRows.slice(0,6).map(r=><TouchableOpacity key={r.id} style={styles.rateRow} onPress={()=>{setRateType(r.type);setRateMaterial(r.material);setRateValue(String(r.rate));}}><View style={{flex:1}}><Text style={styles.rateName}>{r.material}</Text><Text style={styles.rateMeta}>{r.type||getProduct(r.product).name} · per {r.unit}</Text></View><Text style={styles.ratePrice}>{formatINR(r.rate)}</Text></TouchableOpacity>)}
+      </Card>
+
       <SectionTitle>
         <Text style={{ fontSize: 16, fontWeight: '800', color: colors.text }}>Accessories</Text>
       </SectionTitle>
@@ -439,6 +456,7 @@ const styles = StyleSheet.create({
   extraRow: { flexDirection: 'row', alignItems: 'flex-end' },
   extraDel: { color: colors.danger, fontWeight: '800', paddingBottom: 14, paddingLeft: 6 },
   resetInline: { color: colors.navy, fontWeight: '800', fontSize: 12, backgroundColor: colors.chipBg, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 10, marginBottom: 8 },
+  rateChip:{paddingHorizontal:12,paddingVertical:8,borderRadius:999,backgroundColor:'#E9EDF4'},rateChipOn:{backgroundColor:colors.navy},rateChipText:{fontSize:12,fontWeight:'700',color:colors.textMuted},rateChipTextOn:{color:'#fff'},rateRow:{flexDirection:'row',alignItems:'center',paddingVertical:9,borderBottomWidth:1,borderBottomColor:'#EEF1F5'},rateName:{fontWeight:'800',color:colors.textDark,fontSize:13},rateMeta:{fontSize:11,color:colors.textMuted,marginTop:2},ratePrice:{fontWeight:'900',color:colors.orange},
   section: { fontSize: 15, fontWeight: '800', color: colors.text, marginBottom: 8 },
   sumRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
   sumLbl: { color: colors.textMuted, fontSize: 13.5 },
