@@ -1,4 +1,6 @@
 import React, { useEffect } from 'react';
+import { AppState } from 'react-native';
+import { autoSyncTwoDevices } from '../src/services/db';
 import { runDailyAutoBackup } from '../src/services/backupService';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -9,6 +11,10 @@ import { colors } from '../src/constants/colors';
 export default function RootLayout() {
   useEffect(() => {
     runDailyAutoBackup().catch(() => {});
+    autoSyncTwoDevices().catch(() => {});
+    const timer = setInterval(() => { autoSyncTwoDevices().catch(() => {}); }, 60000);
+    const sub = AppState.addEventListener('change', (state) => { if (state === 'active') autoSyncTwoDevices().catch(() => {}); });
+    return () => { clearInterval(timer); sub.remove(); };
   }, []);
 
   return (
