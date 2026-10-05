@@ -9,8 +9,9 @@ import { getBrandLogo } from '../../src/constants/company';
 import { useSettings } from '../../src/context/SettingsContext';
 import { defaultProfile } from '../../src/services/settingsService';
 import type { CompanyProfile } from '../../src/types/settings';
+import { PermissionGuard } from '../../src/components/PermissionGuard';
 
-export default function ProfileSettings() {
+function ProfileSettingsContent() {
   const { settings, setProfile } = useSettings();
   const [p, setP] = useState<CompanyProfile>(settings.profile);
   const [saving, setSaving] = useState(false);
@@ -153,3 +154,8 @@ const styles = StyleSheet.create({
   logoTxt: { color: colors.gold, fontWeight: '900', fontSize: 26 },
   hint: { color: colors.textMuted, fontSize: 12, marginTop: 8, lineHeight: 17 },
 });
+
+
+export default function GuardedScreen() {
+  return <PermissionGuard permission="settings.manage"><ProfileSettingsContent /></PermissionGuard>;
+}
