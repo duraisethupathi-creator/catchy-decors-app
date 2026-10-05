@@ -4,6 +4,7 @@ import { Button, Card, Field } from '../../src/components/common';
 import { toast, confirm } from '../../src/components/common/ui';
 import { colors } from '../../src/constants/colors';
 import {
+import { PermissionGuard } from '../../src/components/PermissionGuard';
   clearSupabaseConfig,
   getSupabaseConfig,
   hydrateSupabaseConfig,
@@ -13,7 +14,7 @@ import {
 } from '../../src/services/supabaseClient';
 import { autoSyncTwoDevices, getSyncState, onSyncStateChange, pushToSupabase, pullFromSupabase, type SyncState } from '../../src/services/db';
 
-export default function SupabaseSettings() {
+function SupabaseSettingsContent() {
   const [url, setUrl] = useState('');
   const [key, setKey] = useState('');
   const [busy, setBusy] = useState(false);
@@ -226,3 +227,8 @@ const styles = StyleSheet.create({
   mono: { fontSize: 11.5, color: colors.navy, marginTop: 4, fontFamily: 'monospace' as never },
   summary: { color: colors.textDark, fontSize: 12.5, marginTop: 8, lineHeight: 18 },
 });
+
+
+export default function GuardedScreen() {
+  return <PermissionGuard permission="cloud_sync.manage"><SupabaseSettingsContent /></PermissionGuard>;
+}
