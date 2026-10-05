@@ -12,6 +12,7 @@ import { getQuotations, getMonthSales } from '../../src/services/quotationServic
 import { formatINR } from '../../src/utils/currency';
 import { getSyncState, type SyncState } from '../../src/services/db';
 import { getPendingPayments, type PendingPayment } from '../../src/services/paymentService';
+import { can } from '../../src/services/permissions';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -38,11 +39,13 @@ export default function Dashboard() {
   const hour = new Date().getHours();
   const greet = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
 
+  const adminView = can(user?.role, 'profit.view');
+
   const cards = [
     { icon: 'people', label: 'Total Customers', value: String(stats.customers), tint: colors.navy },
     { icon: 'person-add', label: 'New Customers', value: String(stats.newC), tint: colors.orange, route: '/(tabs)/customers' },
     { icon: 'document-text', label: 'Total Quotations', value: String(stats.quotations), tint: colors.red, route: '/(tabs)/quotations' },
-    { icon: 'trending-up', label: 'This Month Sales', value: formatINR(stats.monthSales), tint: '#0E9A4C', route: '/(tabs)/reports' },
+    ...(adminView ? [{ icon: 'trending-up', label: 'This Month Sales', value: formatINR(stats.monthSales), tint: '#0E9A4C', route: '/(tabs)/reports' }] : []),
   ];
 
   const logoSource = useLogoSource();
@@ -52,7 +55,7 @@ export default function Dashboard() {
     { icon: 'resize', label: 'New Measurement', route: '/customer/new?mode=measurement', tint: colors.orange },
     { icon: 'document', label: 'Create Quotation', route: '/customer/new?mode=quotation', tint: colors.red },
     { icon: 'construct', label: 'Service Bill', route: '/service/new', tint: '#0E9A4C' },
-    { icon: 'wallet', label: 'Expenses & Profit', route: '/expense', tint: '#7A4DB3' },
+    ...(adminView ? [{ icon: 'wallet', label: 'Expenses & Profit', route: '/expense', tint: '#7A4DB3' }] : []),
   ];
 
   return (
