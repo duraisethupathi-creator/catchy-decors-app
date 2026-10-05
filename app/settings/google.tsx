@@ -6,6 +6,7 @@ import { Button, Card } from '../../src/components/common';
 import { toast, confirm } from '../../src/components/common/ui';
 import { colors } from '../../src/constants/colors';
 import {
+import { PermissionGuard } from '../../src/components/PermissionGuard';
   clearSession,
   getStoredSession,
   isGoogleConfigured,
@@ -15,7 +16,7 @@ import { downloadBackup, getLatestBackupInfo, testDriveAccess, uploadBackup, typ
 import { backupFileName, collectBackup, restoreBackup, summariseBackup } from '../../src/services/backupService';
 import { useAuth } from '../../src/context/AuthContext';
 
-export default function GoogleSettings() {
+function GoogleSettingsContent() {
   const { refresh } = useAuth();
   const configured = isGoogleConfigured();
 
@@ -231,3 +232,8 @@ const styles = StyleSheet.create({
   autoTitle: { color: colors.textDark, fontWeight: '800', fontSize: 13.5 },
   mono: { fontSize: 11.5, color: colors.textMuted, marginTop: 4 },
 });
+
+
+export default function GuardedScreen() {
+  return <PermissionGuard permission="settings.manage"><GoogleSettingsContent /></PermissionGuard>;
+}
