@@ -10,10 +10,11 @@ import { formatQuotationNumber } from '../../src/utils/numbering';
 import { resetQuotationSequence } from '../../src/utils/quotationNumber';
 import { numericInput } from '../../src/utils/validation';
 import type { QuotationTemplate } from '../../src/types/settings';
+import { PermissionGuard } from '../../src/components/PermissionGuard';
 
 const ACCENTS = ['#FF7A00', '#ED1C24', '#101D4A', '#0E9A4C', '#6B34C7', '#C77700'];
 
-export default function TemplateSettings() {
+function TemplateSettingsContent() {
   const { settings, setTemplate } = useSettings();
   const [t, setT] = useState<QuotationTemplate>(settings.template);
   const [saving, setSaving] = useState(false);
@@ -181,3 +182,8 @@ const styles = StyleSheet.create({
   previewLabel: { fontSize: 11, fontWeight: '800', color: '#C77700', letterSpacing: 0.5 },
   previewValue: { fontSize: 18, fontWeight: '900', color: colors.navy, marginTop: 4 },
 });
+
+
+export default function GuardedScreen() {
+  return <PermissionGuard permission="settings.manage"><TemplateSettingsContent /></PermissionGuard>;
+}
