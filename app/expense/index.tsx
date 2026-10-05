@@ -9,6 +9,7 @@ import {formatINR} from '../../src/utils/currency';
 import {numericInput} from '../../src/utils/validation';
 import {addExpense,getExpenseSummary,type Expense,type ExpenseCategory} from '../../src/services/expenseService';
 import {getMonthSales} from '../../src/services/quotationService';
+import { PermissionGuard } from '../../src/components/PermissionGuard';
 const CATS:ExpenseCategory[]=['Material','Stitching','Transport','Installation','Labour','Other'];
 export default function Expenses(){
  const [rows,setRows]=useState<Expense[]>([]),[sales,setSales]=useState(0),[monthExpense,setMonthExpense]=useState(0);
@@ -28,3 +29,8 @@ export default function Expenses(){
  </ScrollView>
 }
 const s=StyleSheet.create({root:{flex:1,backgroundColor:colors.bg},title:{fontSize:24,fontWeight:'900',color:colors.navy},sub:{color:colors.textMuted,marginTop:3},summary:{backgroundColor:colors.navy,borderRadius:18,padding:16,marginTop:14,gap:12},lbl:{color:'rgba(255,255,255,.7)',fontSize:11},sales:{color:'#fff',fontSize:20,fontWeight:'900'},exp:{color:'#FFB4B4',fontSize:20,fontWeight:'900'},profit:{color:'#72E6A0',fontSize:22,fontWeight:'900'},sec:{fontWeight:'900',color:colors.navy,fontSize:16,marginBottom:10},chips:{flexDirection:'row',flexWrap:'wrap',gap:7,marginBottom:10},chip:{backgroundColor:'#E9EDF4',paddingHorizontal:11,paddingVertical:8,borderRadius:999},chipOn:{backgroundColor:colors.navy},chipText:{fontSize:12,fontWeight:'700',color:colors.textMuted},chipTextOn:{color:'#fff'},sec2:{fontSize:16,fontWeight:'900',color:colors.text,marginTop:20,marginBottom:8},row:{backgroundColor:'#fff',borderRadius:13,padding:13,marginBottom:8,flexDirection:'row',alignItems:'center'},name:{fontWeight:'800',color:colors.text},meta:{fontSize:11.5,color:colors.textMuted,marginTop:3},amount:{fontWeight:'900',color:colors.red}});
+
+
+export default function GuardedScreen() {
+  return <PermissionGuard permission="expenses.view"><undefinedContent /></PermissionGuard>;
+}
