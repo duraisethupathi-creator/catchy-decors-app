@@ -5,8 +5,8 @@ import { router } from 'expo-router';
 import { Button, Card } from '../../src/components/common';
 import { toast, confirm } from '../../src/components/common/ui';
 import { colors } from '../../src/constants/colors';
-import {
 import { PermissionGuard } from '../../src/components/PermissionGuard';
+import {
   clearSession,
   getStoredSession,
   isGoogleConfigured,
