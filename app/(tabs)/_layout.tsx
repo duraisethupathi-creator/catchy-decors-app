@@ -3,7 +3,8 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../src/constants/colors';
-import { AuthProvider } from '../../src/context/AuthContext';
+import { AuthProvider, useAuth } from '../../src/context/AuthContext';
+import { can } from '../../src/services/permissions';
 
 function TabIcon({ name, label, focused }: { name: keyof typeof Ionicons.glyphMap; label: string; focused: boolean }) {
   return (
@@ -16,9 +17,11 @@ function TabIcon({ name, label, focused }: { name: keyof typeof Ionicons.glyphMa
   );
 }
 
-export default function TabsLayout() {
+function RoleAwareTabs() {
+  const { user } = useAuth();
+  const adminView = can(user?.role, 'profit.view');
+  const adminSettings = can(user?.role, 'settings.manage');
   return (
-    <AuthProvider>
       <Tabs
         screenOptions={{
           headerShown: false,
@@ -47,15 +50,18 @@ export default function TabsLayout() {
         />
         <Tabs.Screen
           name="reports"
-          options={{ tabBarLabel: '', tabBarIcon: ({ focused }) => <TabIcon name="bar-chart" label="Reports" focused={focused} /> }}
+          options={{ href: adminView ? undefined : null, tabBarLabel: '', tabBarIcon: ({ focused }) => <TabIcon name="bar-chart" label="Reports" focused={focused} /> }}
         />
         <Tabs.Screen
           name="settings"
-          options={{ tabBarLabel: '', tabBarIcon: ({ focused }) => <TabIcon name="settings" label="Settings" focused={focused} /> }}
+          options={{ href: adminSettings ? undefined : null, tabBarLabel: '', tabBarIcon: ({ focused }) => <TabIcon name="settings" label="Settings" focused={focused} /> }}
         />
       </Tabs>
-    </AuthProvider>
   );
+}
+
+export default function TabsLayout() {
+  return <AuthProvider><RoleAwareTabs /></AuthProvider>;
 }
 
 export const unstable_settings = { initialRouteName: 'dashboard' };
