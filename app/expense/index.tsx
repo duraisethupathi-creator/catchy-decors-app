@@ -11,7 +11,7 @@ import {addExpense,getExpenseSummary,type Expense,type ExpenseCategory} from '..
 import {getMonthSales} from '../../src/services/quotationService';
 import { PermissionGuard } from '../../src/components/PermissionGuard';
 const CATS:ExpenseCategory[]=['Material','Stitching','Transport','Installation','Labour','Other'];
-export default function Expenses(){
+function ExpensesContent(){
  const [rows,setRows]=useState<Expense[]>([]),[sales,setSales]=useState(0),[monthExpense,setMonthExpense]=useState(0);
  const [cat,setCat]=useState<ExpenseCategory>('Material'),[desc,setDesc]=useState(''),[amount,setAmount]=useState('');
  const [period,setPeriod]=useState<'month'|'all'>('month');
@@ -32,5 +32,5 @@ const s=StyleSheet.create({root:{flex:1,backgroundColor:colors.bg},title:{fontSi
 
 
 export default function GuardedScreen() {
-  return <PermissionGuard permission="expenses.view"><undefinedContent /></PermissionGuard>;
+  return <PermissionGuard permission="expenses.view"><ExpensesContent /></PermissionGuard>;
 }
