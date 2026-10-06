@@ -284,7 +284,7 @@ export default function Preview() {
       setBusy(true);
       const src = await currentExportSource();
       if (!src) return;
-      const html = kind === 'gst' ? buildGstBillHtml(src, gst, docCtx) : buildQuotationHtml(src, null, docCtx);
+      const resolvedLogo = logoDataUri || await readLogoDataUri(settings.profile.logoUri);\n      const exportCtx = { profile: settings.profile, template: settings.template, logoDataUri: resolvedLogo };\n      const html = kind === 'gst' ? buildGstBillHtml(src, gst, exportCtx) : buildQuotationHtml(src, null, exportCtx);
       const { uri } = await Print.printToFileAsync({ html, width: 595, height: 842 });
       toast(`${kind === 'gst' ? 'GST Invoice' : 'PDF'} generated from edited values`);
       if (kind === 'quotation') await shareOrSave(uri, quotationFileName(src, 'quotation'));
