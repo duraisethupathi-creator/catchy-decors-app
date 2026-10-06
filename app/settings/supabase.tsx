@@ -3,8 +3,8 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button, Card, Field } from '../../src/components/common';
 import { toast, confirm } from '../../src/components/common/ui';
 import { colors } from '../../src/constants/colors';
-import {
 import { PermissionGuard } from '../../src/components/PermissionGuard';
+import {
   clearSupabaseConfig,
   getSupabaseConfig,
   hydrateSupabaseConfig,
