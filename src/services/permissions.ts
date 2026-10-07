@@ -43,8 +43,10 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
 };
 
 export function can(role: Role | undefined | null, permission: Permission): boolean {
-  if (!role) return false;
-  return ROLE_PERMISSIONS[role].includes(permission);
+  const normalized = String(role ?? '').trim().toLowerCase() as Role;
+  if (normalized === 'admin') return true;
+  if (normalized !== 'staff') return false;
+  return ROLE_PERMISSIONS.staff.includes(permission);
 }
 
 export function isAdmin(role: Role | undefined | null): boolean {
