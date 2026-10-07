@@ -299,7 +299,8 @@ export default function Preview() {
 
   async function shareOrSave(uri: string, fname: string): Promise<void> {
     const dir = FileSystem.cacheDirectory || FileSystem.documentDirectory;
-    const namedUri = dir ? `${dir}${fname}` : uri;
+    const safeName = fname.endsWith('.pdf') ? fname : `${fname}.pdf`;
+    const namedUri = dir ? `${dir}${safeName}` : uri;
     if (namedUri !== uri) {
       try {
         await FileSystem.deleteAsync(namedUri, { idempotent: true });
@@ -312,7 +313,7 @@ export default function Preview() {
     if (await Sharing.isAvailableAsync()) {
       await Sharing.shareAsync(shareUri, {
         mimeType: 'application/pdf',
-        dialogTitle: `${fname} — share via WhatsApp, Email or Save`,
+        dialogTitle: `${safeName} — share via WhatsApp, Email or Save`,
         UTI: 'com.adobe.pdf',
       });
     } else {
