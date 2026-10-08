@@ -1,7 +1,7 @@
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 import type { AppUser } from './authService';
-import { restoreSession } from './authService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ENABLED_KEY = 'cd_biometric_enabled';
 const USER_KEY = 'cd_biometric_user';
@@ -48,7 +48,7 @@ export async function biometricLogin(): Promise<{ user?: AppUser; error?: string
   if (!raw) return { error: 'Saved biometric account not found' };
   try {
     const user = JSON.parse(raw) as AppUser;
-    await restoreSession(user);
+    await AsyncStorage.setItem('cd_session', JSON.stringify(user));
     return { user };
   } catch {
     return { error: 'Saved biometric account is invalid' };
