@@ -75,6 +75,7 @@ export default function Preview() {
   const [busy, setBusy] = useState(false);
   const [charges, setCharges] = useState<ChargesBundle>(emptyChargesBundle);
   const [showGstEditor, setShowGstEditor] = useState(false);
+  const [showMoreExports, setShowMoreExports] = useState(false);
   const [gst, setGst] = useState<GstBillSettings>({
     enabled: settings.template.gstEnabledByDefault,
     percent: settings.template.gstPercent || 18,
@@ -659,33 +660,75 @@ export default function Preview() {
         ) : null}
       </Card>
 
-      {/* ===== Actions ===== */}
+      {/* ===== PDF & Billing ===== */}
+      <Card style={{ marginTop: 14 }}>
+        <Text style={styles.actionSectionTitle}>PDF & Billing</Text>
+        <Text style={styles.actionSectionHint}>Choose the document you want to send to the customer.</Text>
+
+        <View style={styles.docActionCard}>
+          <View style={styles.docActionIcon}><Ionicons name="document-text-outline" size={22} color={colors.navy} /></View>
+          <View style={styles.docActionCopy}>
+            <Text style={styles.docActionTitle}>Quotation PDF</Text>
+            <Text style={styles.docActionHint}>Estimate / quotation only · no GST</Text>
+          </View>
+          <TouchableOpacity disabled={busy} onPress={() => onShare('quotation')} style={styles.docActionButton}>
+            <Ionicons name="share-social-outline" size={18} color="#fff" />
+            <Text style={styles.docActionButtonText}>Send</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.docActionCard}>
+          <View style={styles.docActionIcon}><Ionicons name="receipt-outline" size={22} color={colors.navy} /></View>
+          <View style={styles.docActionCopy}>
+            <Text style={styles.docActionTitle}>Bill Without GST</Text>
+            <Text style={styles.docActionHint}>Uses the approved quotation values · GST-free bill copy</Text>
+          </View>
+          <TouchableOpacity disabled={busy} onPress={() => onShare('quotation')} style={styles.docActionButton}>
+            <Ionicons name="share-social-outline" size={18} color="#fff" />
+            <Text style={styles.docActionButtonText}>Send</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.docActionCard}>
+          <View style={styles.docActionIcon}><Ionicons name="calculator-outline" size={22} color={colors.navy} /></View>
+          <View style={styles.docActionCopy}>
+            <Text style={styles.docActionTitle}>GST Tax Invoice</Text>
+            <Text style={styles.docActionHint}>Separate GST invoice with item-wise GST calculation</Text>
+          </View>
+          <TouchableOpacity
+            disabled={busy}
+            onPress={() => {
+              if (!showGstEditor) setShowGstEditor(true);
+              if (!gst.enabled) setGst((g) => ({ ...g, enabled: true }));
+              toast('GST bill section opened — verify GST details, then share invoice');
+            }}
+            style={[styles.docActionButton, styles.gstActionButton]}
+          >
+            <Ionicons name="create-outline" size={18} color="#fff" />
+            <Text style={styles.docActionButtonText}>Open</Text>
+          </TouchableOpacity>
+        </View>
+
+        {showGstEditor && gst.enabled ? (
+          <Button title="Share GST Tax Invoice" icon="share-social" variant="accent" onPress={() => onShare('gst')} disabled={busy} style={{ marginTop: 8 }} />
+        ) : null}
+
+        <TouchableOpacity onPress={() => setShowMoreExports((v) => !v)} style={styles.moreOptions}>
+          <Ionicons name="ellipsis-horizontal-circle-outline" size={20} color={colors.navy} />
+          <Text style={styles.moreOptionsText}>More Options</Text>
+          <Ionicons name={showMoreExports ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textMuted} />
+        </TouchableOpacity>
+
+        {showMoreExports ? (
+          <View style={{ gap: 8, marginTop: 8 }}>
+            <Button title={busy ? 'Building Excel…' : 'Export Excel — Quotation (.xlsx)'} icon="grid-outline" variant="outline" onPress={() => exportExcel('quotation')} disabled={busy} />
+            <Button title="Export Excel — GST Billing (.xlsx)" icon="grid-outline" variant="outline" onPress={() => gst.enabled && exportExcel('gst')} disabled={busy || !gst.enabled} />
+          </View>
+        ) : null}
+      </Card>
+
       <View style={{ gap: 10, marginTop: 14 }}>
         <Button title={busy ? 'Working…' : dirty ? 'Save Changes' : 'Saved — No Pending Edits'} icon="save" variant="primary" onPress={onSave} disabled={busy || !dirty} />
-        <Button title={busy ? 'Generating…' : 'Generate Quotation PDF (from edited values)'} icon="document" variant="accent" onPress={() => generatePdf('quotation')} disabled={busy} />
-        <Button title="Share Quotation PDF (WhatsApp / Email / Save)" icon="share-social" onPress={() => onShare('quotation')} disabled={busy} />
-        <Button
-          title={busy ? 'Generating…' : gst.enabled ? 'Generate GST Tax Invoice' : 'Generate GST Tax Invoice (enable above)'}
-          icon="receipt"
-          variant={gst.enabled ? 'accent' : 'outline'}
-          onPress={() => gst.enabled && generatePdf('gst')}
-          disabled={busy || !gst.enabled}
-        />
-        <Button title="Share GST Tax Invoice" icon="share-social" onPress={() => onShare('gst')} disabled={busy || !gst.enabled} />
-        <Button
-          title={busy ? 'Building Excel…' : 'Export Excel — Quotation (.xlsx)'}
-          icon="grid"
-          variant="outline"
-          onPress={() => exportExcel('quotation')}
-          disabled={busy}
-        />
-        <Button
-          title={gst.enabled ? 'Export Excel — GST Billing (.xlsx)' : 'Export Excel — GST Billing (enable GST above)'}
-          icon="grid"
-          variant={gst.enabled ? 'outline' : 'ghost'}
-          onPress={() => gst.enabled && exportExcel('gst')}
-          disabled={busy || !gst.enabled}
-        />
         <Button title="Delete" icon="trash" variant="danger" onPress={() =>
           confirm('Delete Quotation', `Delete ${q.quotation_number}?`, async () => {
             await deleteQuotation(q.id);
@@ -756,6 +799,18 @@ const styles = StyleSheet.create({
   gstToggleRow: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, backgroundColor: '#F4F7FB', marginBottom: 10 },
   gstToggleTitle: { color: colors.navy, fontWeight: '900', fontSize: 14 },
   gstToggleHint: { color: colors.textMuted, fontSize: 11.5, marginTop: 2 },
+  actionSectionTitle: { color: colors.navy, fontWeight: '900', fontSize: 16 },
+  actionSectionHint: { color: colors.textMuted, fontSize: 11.5, marginTop: 3, marginBottom: 10 },
+  docActionCard: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.border, borderRadius: 14, padding: 11, marginTop: 8, backgroundColor: '#fff' },
+  docActionIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#F1F4F9', alignItems: 'center', justifyContent: 'center' },
+  docActionCopy: { flex: 1, paddingHorizontal: 10 },
+  docActionTitle: { color: colors.navy, fontWeight: '900', fontSize: 13.5 },
+  docActionHint: { color: colors.textMuted, fontSize: 10.5, lineHeight: 14, marginTop: 2 },
+  docActionButton: { minWidth: 66, borderRadius: 10, backgroundColor: colors.navy, paddingHorizontal: 10, paddingVertical: 9, flexDirection: 'row', gap: 5, alignItems: 'center', justifyContent: 'center' },
+  gstActionButton: { backgroundColor: colors.orange },
+  docActionButtonText: { color: '#fff', fontWeight: '800', fontSize: 11.5 },
+  moreOptions: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border },
+  moreOptionsText: { flex: 1, color: colors.navy, fontWeight: '800', fontSize: 12.5 },
   statusTitle: { color: colors.textMuted, fontWeight: '800', fontSize: 11, letterSpacing: 1, marginTop: 8 },
   statusScroller: { alignItems: 'center', paddingVertical: 8, paddingRight: 12 },
   statusChip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1.5, borderColor: colors.navy, borderRadius: 999, paddingHorizontal: 13, paddingVertical: 9, backgroundColor: '#fff' },
