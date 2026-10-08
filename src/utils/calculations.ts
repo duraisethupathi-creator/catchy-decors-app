@@ -80,11 +80,10 @@ export function calculateFitting(windows: unknown, pricePerWindow: unknown): num
   return round2(n * p);
 }
 
-/** Stitching: quantity = curtainWidth / 20, total = quantity * price */
-export function calculateStitching(curtainWidth: unknown, price: unknown): { quantity: number; total: number } {
-  const w = clampNonNeg(toNum(curtainWidth));
+/** Stitching: quantity is Curtain Parts (decimal supported), total = parts × price. */
+export function calculateStitching(parts: unknown, price: unknown): { quantity: number; total: number } {
+  const quantity = clampNonNeg(toNum(parts));
   const p = clampNonNeg(toNum(price));
-  const quantity = w === 0 ? 0 : round2(w / 20);
   return { quantity, total: round2(quantity * p) };
 }
 
@@ -95,6 +94,7 @@ export function calcQuantityFor(
 ): number {
   switch (formula) {
     case 'curtain':
+      // For curtain callers the first argument represents Parts, not physical width.
       return calculateCurtainQty(width, height);
     case 'square_feet':
       return calculateSquareFeet(width, height);
