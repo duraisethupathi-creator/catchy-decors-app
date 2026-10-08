@@ -181,7 +181,8 @@ export async function getStats(): Promise<SalesStats> {
   const rows = await getQuotations();
   return {
     totalQuotations: rows.length,
-    totalSales: rows.reduce((s, q) => s + q.grand_total, 0),
+    // Sales are realised only after a quotation is approved/completed.
+    totalSales: rows.filter((q) => q.status === 'approved' || q.status === 'completed').reduce((s, q) => s + q.grand_total, 0),
     pending: rows.filter((q) => q.status === 'draft' || q.status === 'sent').length,
     approved: rows.filter((q) => q.status === 'approved' || q.status === 'completed').length,
   };
@@ -192,8 +193,10 @@ export async function getMonthSales(): Promise<number> {
   const now = new Date();
   return rows
     .filter((q) => {
-      if (!q.created_at) return false;
-      const d = new Date(q.created_at);
+      if (q.status !== 'approved' && q.status !== 'completed') return false;
+      const rawDate = q.created_at ?? q.quotation_date;
+      if (!rawDate) return false;
+      const d = new Date(rawDate);
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     })
     .reduce((s, q) => s + q.grand_total, 0);
@@ -208,7 +211,12 @@ export async function getSalesInRange(days: number): Promise<{ label: string; to
     const d = new Date(today);
     d.setDate(d.getDate() - i);
     const key = d.toISOString().slice(0, 10);
-    const dayRows = rows.filter((q) => (q.created_at ?? q.quotation_date) === key || q.quotation_date === key);
+    const dayRows = rows.filter((q) => {
+      if (q.status !== 'approved' && q.status !== 'completed') return false;
+      const raw = q.created_at ?? q.quotation_date;
+      const rowKey = raw ? String(raw).slice(0, 10) : '';
+      return rowKey === key || String(q.quotation_date ?? '').slice(0, 10) === key;
+    });
     buckets.push({
       label: `${d.getDate()}/${d.getMonth() + 1}`,
       total: dayRows.reduce((s, q) => s + q.grand_total, 0),
@@ -222,6 +230,7 @@ export async function getProductWiseSales(): Promise<{ product: string; total: n
   const rows = await getQuotations();
   const map = new Map<string, { total: number; count: number }>();
   for (const q of rows) {
+    if (q.status !== 'approved' && q.status !== 'completed') continue;
     for (const item of q.items ?? []) {
       const entry = map.get(item.product_type) ?? { total: 0, count: 0 };
       entry.total += item.total;
