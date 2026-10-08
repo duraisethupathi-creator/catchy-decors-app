@@ -64,7 +64,7 @@ export function calculateWallpaperQty(
 
 export const WALLPAPER_BONUS_THRESHOLD_ROLLS = Number.POSITIVE_INFINITY;
 
-/** Curtain track: W/12, business rounding to 0 / .5 / next whole. */
+/** Curtain track: W/12, business rounding to 0 / .5 / next whole, then +0.3 on whole results. */
 export function calculateAccessories(curtainWidth: unknown): number {
   const w = clampNonNeg(toNum(curtainWidth));
   if (w === 0) return 0;
@@ -73,7 +73,8 @@ export function calculateAccessories(curtainWidth: unknown): number {
   const fraction = raw - whole;
   // 0.0–0.1 => whole; >0.1–0.5 => half; >0.5 => next whole.
   const rounded = fraction <= 0.1 ? whole : fraction <= 0.5 ? whole + 0.5 : whole + 1;
-  return round2(rounded);
+  // Business rule: exact whole track quantities carry an extra 0.3 R.ft.
+  return round2(Number.isInteger(rounded) ? rounded + 0.3 : rounded);
 }
 
 export function calculateTotal(quantity: unknown, price: unknown): number {
