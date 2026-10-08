@@ -8,9 +8,9 @@ import { can } from '../../src/services/permissions';
 
 function TabIcon({ name, label, focused }: { name: keyof typeof Ionicons.glyphMap; label: string; focused: boolean }) {
   return (
-    <View style={{ alignItems: 'center', paddingTop: 6 }}>
+    <View style={{ alignItems: 'center', justifyContent: 'center', paddingTop: 5, minWidth: 58 }}>
       <Ionicons name={name} size={22} color={focused ? colors.gold : 'rgba(255,255,255,0.65)'} />
-      <Text style={{ fontSize: 10, color: focused ? colors.gold : 'rgba(255,255,255,0.65)', marginTop: 2, fontWeight: focused ? '800' : '500' }}>
+      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.78} style={{ fontSize: 9.5, color: focused ? colors.gold : 'rgba(255,255,255,0.65)', marginTop: 2, fontWeight: focused ? '800' : '500', textAlign: 'center' }}>
         {label}
       </Text>
     </View>
