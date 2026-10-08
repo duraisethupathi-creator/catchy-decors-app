@@ -17,7 +17,14 @@ export interface PendingPayment {
 export async function getPendingPayments():Promise<PendingPayment[]>{
   const { getQuotations } = await import('./quotationService');
   const quotes=await getQuotations(); const payments=await getPayments();
-  return quotes.map(q=>{const paid=payments.filter(p=>p.quotationId===q.id).reduce((s,p)=>s+p.amount,0);return {quotationId:q.id,quotationNumber:q.quotation_number,customerName:q.customer_name||'',customerPhone:q.customer_phone||'',total:q.grand_total,paid,balance:Math.max(0,q.grand_total-paid)};}).filter(x=>x.balance>0).sort((a,b)=>b.balance-a.balance);
+  // Draft/sent quotations are proposals, not receivables. Only confirmed sales
+  // should appear on the dashboard as money that is actually due.
+  const receivables = quotes.filter(q =>
+    q.status === 'approved' ||
+    q.status === 'completed' ||
+    (q.work_status != null && q.work_status !== 'quotation')
+  );
+  return receivables.map(q=>{const paid=payments.filter(p=>p.quotationId===q.id).reduce((s,p)=>s+p.amount,0);return {quotationId:q.id,quotationNumber:q.quotation_number,customerName:q.customer_name||'',customerPhone:q.customer_phone||'',total:q.grand_total,paid,balance:Math.max(0,q.grand_total-paid)};}).filter(x=>x.balance>0).sort((a,b)=>b.balance-a.balance);
 }
 
 
