@@ -513,8 +513,8 @@ export function quotationFileName(q: Quotation, kind: 'quotation' | 'gst' = 'quo
   const token = sanitizeFileToken(q.customer_name);
   const num = String(q.quotation_number ?? '').replace(/[^a-zA-Z0-9_\-]/g, '_') || 'Quotation';
   return kind === 'gst'
-    ? `CatchyDecors_${num}_GSTInvoice_${token}.pdf`
-    : `CatchyDecors_${num}_${token}.pdf`;
+    ? `Catchy-Decors-GST-Invoice-${token}-${num}.pdf`
+    : `Catchy-Decors-Quotation-${token}-${num}.pdf`;
 }
 
 /** Product key helper kept for callers that need the unit label. */
