@@ -252,8 +252,8 @@ export function buildQuotationHtml(
   const logoBlock = !template.showLogo
     ? ''
     : ctx?.logoDataUri
-      ? `<img class="logo-img" src="${esc(ctx.logoDataUri)}" alt="logo" />`
-      : `<div class="logo-wrap">CD</div>`;
+      ? `<img class="logo-img" src="${esc(ctx.logoDataUri)}" alt="Catchy Decors logo" />`
+      : '';
 
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8" /><style>
