@@ -250,11 +250,14 @@ export function buildQuotationHtml(
       )}</div><div class="sign-sub">For ${esc(co.name)}</div></div>`
     : '';
 
+  // The caller's resolved context may contain the bundled default logo even when
+  // no custom logo was selected. Use that resolved value so PDFs never silently
+  // lose the Catchy Decors logo.
   const logoBlock = !template.showLogo
     ? ''
-    : ctx?.logoDataUri
-      ? `<img class="logo-img" src="${esc(ctx.logoDataUri)}" alt="Catchy Decors logo" />`
-      : '';
+    : resolve(ctx).logoDataUri
+      ? `<img class="logo-img" src="${esc(resolve(ctx).logoDataUri)}" alt="Catchy Decors logo" />`
+      : '<div class="logo-fallback">CD</div>';
 
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8" /><style>
@@ -304,7 +307,8 @@ export function buildQuotationHtml(
   .footer { margin-top: 22px; padding: 14px 28px; background: #F6F7F9; font-size: 9px; color: #6B7390; text-align: center; line-height: 1.6; }
   .thanks { text-align: center; padding: 14px; font-size: 11px; color: #101D4A; font-weight: bold; letter-spacing: 0.5px; }
   .logo-wrap { width: 52px; height: 52px; border-radius: 10px; background: #fff; display: flex; align-items: center; justify-content: center; font-weight:bold; color:#101D4A; font-size: 17px; }
-  .logo-img { width: 52px; height: 52px; object-fit: contain; border-radius: 10px; background: #fff; padding: 3px; }
+  .logo-img { width: 62px; height: 52px; object-fit: contain; border-radius: 8px; background: #fff; padding: 3px; }
+  .logo-fallback { width: 52px; height: 52px; border-radius: 8px; background: #fff; display:flex; align-items:center; justify-content:center; color:#101D4A; font-size:17px; font-weight:bold; }
   .drawer { position: relative; padding-bottom: 74px; }
   .sign-bottom { position: absolute; bottom: 4px; left: 28px; }
   .sign-bottom .sign { margin: 0; text-align: left; }
