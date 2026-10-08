@@ -27,7 +27,7 @@ export function calculateCurtainQty(part: unknown, height: unknown): number {
   const p = clampNonNeg(toNum(part));
   const h = clampNonNeg(toNum(height));
   if (p === 0 || h === 0) return 0;
-  return round2((p * (h + 10)) / 40);
+  return round2((p * (h + 12)) / 40);
 }
 
 /** Inch square-feet formula: (W × H) / 144. */
