@@ -26,6 +26,7 @@ import {
 } from '../../src/services/quotationService';
 import {
   buildQuotationHtml,
+  buildNonGstBillHtml,
   buildGstBillHtml,
   quotationFileName,
   type GstBillSettings,
@@ -280,17 +281,17 @@ export default function Preview() {
     return buildMerged();
   }
 
-  async function generatePdf(kind: 'quotation' | 'gst'): Promise<void> {
+  async function generatePdf(kind: 'quotation' | 'bill' | 'gst'): Promise<void> {
     try {
       setBusy(true);
       const src = await currentExportSource();
       if (!src) return;
       const resolvedLogo = logoDataUri || await readLogoDataUri(settings.profile.logoUri);
       const exportCtx = { profile: settings.profile, template: settings.template, logoDataUri: resolvedLogo };
-      const html = kind === 'gst' ? buildGstBillHtml(src, gst, exportCtx) : buildQuotationHtml(src, null, exportCtx);
+      const html = kind === 'gst' ? buildGstBillHtml(src, gst, exportCtx) : kind === 'bill' ? buildNonGstBillHtml(src, exportCtx) : buildQuotationHtml(src, null, exportCtx);
       const { uri } = await Print.printToFileAsync({ html, width: 595, height: 842 });
-      toast(`${kind === 'gst' ? 'GST Invoice' : 'PDF'} generated from edited values`);
-      if (kind === 'quotation') await shareOrSave(uri, quotationFileName(src, 'quotation'));
+      toast(`${kind === 'gst' ? 'GST Invoice' : kind === 'bill' ? 'Bill' : 'Quotation PDF'} generated from edited values`);
+      if (kind !== 'gst') await shareOrSave(uri, quotationFileName(src, kind));
     } catch {
       toast('PDF generation failed');
     } finally {
@@ -322,12 +323,14 @@ export default function Preview() {
     }
   }
 
-  async function onShare(kind: 'quotation' | 'gst') {
+  async function onShare(kind: 'quotation' | 'bill' | 'gst') {
     setBusy(true);
     try {
       const src = await currentExportSource();
       if (!src) return;
-      const html = kind === 'gst' ? buildGstBillHtml(src, gst, docCtx) : buildQuotationHtml(src, null, docCtx);
+      const resolvedLogo = logoDataUri || await readLogoDataUri(settings.profile.logoUri);
+      const exportCtx = { profile: settings.profile, template: settings.template, logoDataUri: resolvedLogo };
+      const html = kind === 'gst' ? buildGstBillHtml(src, gst, exportCtx) : kind === 'bill' ? buildNonGstBillHtml(src, exportCtx) : buildQuotationHtml(src, null, exportCtx);
       const { uri } = await Print.printToFileAsync({ html, width: 595, height: 842 });
       await shareOrSave(uri, quotationFileName(src, kind));
     } catch {
@@ -683,7 +686,7 @@ export default function Preview() {
             <Text style={styles.docActionTitle}>Bill Without GST</Text>
             <Text style={styles.docActionHint}>Uses the approved quotation values · GST-free bill copy</Text>
           </View>
-          <TouchableOpacity disabled={busy} onPress={() => onShare('quotation')} style={styles.docActionButton}>
+          <TouchableOpacity disabled={busy} onPress={() => onShare('bill')} style={styles.docActionButton}>
             <Ionicons name="share-social-outline" size={18} color="#fff" />
             <Text style={styles.docActionButtonText}>Send</Text>
           </TouchableOpacity>
