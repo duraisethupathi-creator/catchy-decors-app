@@ -91,6 +91,11 @@ export async function syncWithSupabase(): Promise<boolean> {
   }
 }
 
+/**
+ * Multi-device policy: Admin 1, Admin 2 and Staff share the same business data.
+ * Authentication remains device-local; operational records below sync through
+ * the shared Supabase workspace. Role permissions are enforced separately.
+ */
 /** Local store ⇄ cloud table mapping (customers first: quotations reference them). */
 const SYNC_TARGETS: { table: string; store: string }[] = [
   { table: 'customers', store: 'cd_customers' },
