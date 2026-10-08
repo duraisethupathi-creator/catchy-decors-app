@@ -94,7 +94,8 @@ function nl2br(s: string): string {
 export function buildQuotationHtml(
   q: Quotation,
   gst?: GstBillSettings | null,
-  ctx?: Partial<DocContext>
+  ctx?: Partial<DocContext>,
+  documentKind: 'quotation' | 'bill' = 'quotation'
 ): string {
   const { profile, template } = resolve(ctx);
   const co = profileToCompany(profile);
@@ -214,7 +215,7 @@ export function buildQuotationHtml(
   const grand = isGst ? round2(taxable + gstAmount) : q.grand_total;
   const invoiceNumber = gst?.invoiceNumber?.trim() || `INV-${q.quotation_number}`;
 
-  const docTitle = isGst ? template.invoiceTitle || 'TAX INVOICE' : template.quotationTitle || 'QUOTATION';
+  const docTitle = isGst ? template.invoiceTitle || 'TAX INVOICE' : documentKind === 'bill' ? 'BILL (WITHOUT GST)' : template.quotationTitle || 'QUOTATION';
   const docNumber = isGst ? invoiceNumber : q.quotation_number;
 
   const unitNote =
@@ -435,6 +436,11 @@ export function buildStandardQuotationHtml(q: Quotation, ctx?: Partial<DocContex
   return buildQuotationHtml(q, null, ctx);
 }
 
+/** Customer bill generated from quotation values without any GST calculation. */
+export function buildNonGstBillHtml(q: Quotation, ctx?: Partial<DocContext>): string {
+  return buildQuotationHtml(q, null, ctx, 'bill');
+}
+
 export function buildGstBillHtml(
   q: Quotation,
   gst: GstBillSettings,
@@ -509,12 +515,14 @@ export function buildGstBillHtml(
 }
 
 /** PDF filename derived from the sanitized customer name. */
-export function quotationFileName(q: Quotation, kind: 'quotation' | 'gst' = 'quotation'): string {
+export function quotationFileName(q: Quotation, kind: 'quotation' | 'bill' | 'gst' = 'quotation'): string {
   const token = sanitizeFileToken(q.customer_name);
   const num = String(q.quotation_number ?? '').replace(/[^a-zA-Z0-9_\-]/g, '_') || 'Quotation';
   return kind === 'gst'
     ? `Catchy-Decors-GST-Invoice-${token}-${num}.pdf`
-    : `Catchy-Decors-Quotation-${token}-${num}.pdf`;
+    : kind === 'bill'
+      ? `Catchy-Decors-Bill-${token}-${num}.pdf`
+      : `Catchy-Decors-Quotation-${token}-${num}.pdf`;
 }
 
 /** Product key helper kept for callers that need the unit label. */
