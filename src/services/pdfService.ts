@@ -504,7 +504,7 @@ export function buildGstBillHtml(
   <div class="box"><span class="label">Bill To</span><br/><span class="strong">${esc(customer.name)}</span><br/>${esc(customer.phone)}${customer.address ? `<br/>${esc(customer.address)}` : ''}${customer.site ? `<br/>Site: ${esc(customer.site)}` : ''}${customer.gstin ? `<br/>GSTIN: ${esc(customer.gstin)}` : ''}</div></div>
   <table><tr><th>S.No</th><th>Description</th><th>HSN/SAC</th><th>Qty</th><th>Rate</th><th>Taxable</th><th>GST %</th><th>GST Amt</th><th>Total</th></tr>
   ${productRows}${accessoryRows || ''}${!productRows && !accessoryRows ? '<tr><td colspan="9">No items</td></tr>' : ''}</table>
-  <table class="totals"><tr><td>Taxable Amount</td><td>${money(taxable)}</td></tr>${discount ? `<tr><td>Discount</td><td>-${money(discount)}</td></tr>` : ''}
+  <table class="totals"><tr><td>Subtotal</td><td>${money(round2(productTaxable + accessoryTaxable + otherTaxable))}</td></tr>${discount ? `<tr><td>Discount</td><td>-${money(discount)}</td></tr>` : ''}<tr><td>Taxable Amount</td><td>${money(taxable)}</td></tr>
   <tr><td>CGST</td><td>${money(cgst)}</td></tr><tr><td>SGST</td><td>${money(sgst)}</td></tr><tr><td>Total GST</td><td>${money(totalTax)}</td></tr><tr class="grand"><td>GRAND TOTAL</td><td>${money(grand)}</td></tr></table>
   <div class="words"><b>Tax Summary:</b> GST is calculated item-wise; default GST rate ${defaultRate}%. CGST and SGST are shown equally for this invoice.</div>
   ${template.showBankDetails && (co.bankName || co.upiId) ? `<div class="payment"><b>Payment Details</b><br/>${co.bankName ? `Bank: ${esc(co.bankName)}<br/>` : ''}${co.bankAccount ? `A/C: ${esc(co.bankAccount)}<br/>` : ''}${co.bankIfsc ? `IFSC: ${esc(co.bankIfsc)}<br/>` : ''}${co.upiId ? `UPI: ${esc(co.upiId)}` : ''}</div>` : ''}
