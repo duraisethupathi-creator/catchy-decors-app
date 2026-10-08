@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -605,11 +605,12 @@ export default function Preview() {
         </TouchableOpacity>
         {showGstEditor ? (
           <View style={{ marginTop: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-              <TouchableOpacity onPress={() => { setGst((g) => ({ ...g, enabled: !g.enabled })); setDirty(true); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Ionicons name={gst.enabled ? 'checkbox' : 'square-outline'} size={22} color={gst.enabled ? colors.orange : colors.textMuted} />
-                <Text style={{ fontWeight: '700', color: colors.textDark }}>Enable GST bill</Text>
-              </TouchableOpacity>
+            <View style={styles.gstToggleRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.gstToggleTitle}>Enable GST Tax Invoice</Text>
+                <Text style={styles.gstToggleHint}>{gst.enabled ? 'GST invoice actions are ready' : 'Turn on to generate and share GST invoice'}</Text>
+              </View>
+              <Switch value={gst.enabled} onValueChange={(v) => { setGst((g) => ({ ...g, enabled: v })); setDirty(true); }} trackColor={{ false: '#CBD2E1', true: colors.orange }} />
             </View>
             <Text style={styles.subsection}>GST %</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
@@ -682,21 +683,28 @@ export default function Preview() {
             router.back();
           })
         } />
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          {(['draft', 'sent', 'approved', 'completed'] as const).map((s) => (
-            <Button
-              key={s}
-              title={s.toUpperCase()}
-              variant={q.status === s ? 'primary' : 'ghost'}
-              style={{ flex: 1, paddingVertical: 10 }}
-              onPress={async () => {
-                await updateQuotationStatus(q.id, s);
-                setQ(await getQuotation(q.id));
-                toast(`Marked as ${s}`);
-              }}
-            />
-          ))}
-        </View>
+        <Text style={styles.statusTitle}>QUOTATION STATUS</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statusScroller}>
+          {(['draft', 'sent', 'approved', 'completed'] as const).map((s, index) => {
+            const active = q.status === s;
+            return (
+              <View key={s} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <TouchableOpacity
+                  style={[styles.statusChip, active && styles.statusChipActive]}
+                  onPress={async () => {
+                    await updateQuotationStatus(q.id, s);
+                    setQ(await getQuotation(q.id));
+                    toast(`Marked as ${s}`);
+                  }}
+                >
+                  <Ionicons name={active ? 'checkmark-circle' : 'ellipse-outline'} size={16} color={active ? '#fff' : colors.navy} />
+                  <Text style={[styles.statusChipText, active && styles.statusChipTextActive]}>{s.toUpperCase()}</Text>
+                </TouchableOpacity>
+                {index < 3 ? <Ionicons name="chevron-forward" size={15} color={colors.textMuted} style={{ marginHorizontal: 4 }} /> : null}
+              </View>
+            );
+          })}
+        </ScrollView>
       </View>
 
       <View style={styles.footer}>
@@ -735,6 +743,15 @@ const styles = StyleSheet.create({
   },
   dirtyText: { color: '#C77700', fontSize: 12.5, fontWeight: '600', flex: 1 },
   subsection: { fontWeight: '800', color: colors.navy, marginTop: 12, marginBottom: 6, fontSize: 13.5 },
+  gstToggleRow: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, backgroundColor: '#F4F7FB', marginBottom: 10 },
+  gstToggleTitle: { color: colors.navy, fontWeight: '900', fontSize: 14 },
+  gstToggleHint: { color: colors.textMuted, fontSize: 11.5, marginTop: 2 },
+  statusTitle: { color: colors.textMuted, fontWeight: '800', fontSize: 11, letterSpacing: 1, marginTop: 8 },
+  statusScroller: { alignItems: 'center', paddingVertical: 8, paddingRight: 12 },
+  statusChip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1.5, borderColor: colors.navy, borderRadius: 999, paddingHorizontal: 13, paddingVertical: 9, backgroundColor: '#fff' },
+  statusChipActive: { backgroundColor: colors.navy },
+  statusChipText: { color: colors.navy, fontWeight: '800', fontSize: 11.5 },
+  statusChipTextActive: { color: '#fff' },
   partsBox: { padding: 12, borderRadius: 10, backgroundColor: '#F4F7FB', marginBottom: 10 },
   partsLabel: { fontSize: 12, color: colors.muted },
   partsValue: { fontSize: 22, fontWeight: '700', color: colors.navy },
