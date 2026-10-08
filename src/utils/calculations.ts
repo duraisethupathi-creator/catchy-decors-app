@@ -22,7 +22,7 @@ export function clampNonNeg(n: number): number {
   return n < 0 ? 0 : n;
 }
 
-/** Curtain: manual Part × (height + 10) / 40 — output in metres. */
+/** Curtain: manual Part × (height + 12) / 40 — output in metres. */
 export function calculateCurtainQty(part: unknown, height: unknown): number {
   const p = clampNonNeg(toNum(part));
   const h = clampNonNeg(toNum(height));
@@ -46,10 +46,20 @@ export function calculateSquareFeetMm(width: unknown, height: unknown): number {
   return round2((w * h) / 305 / 305);
 }
 
-/** Wallpaper (Customize/Normal): (W × H) / 144 sq.ft. */
-export function calculateWallpaperQty(width: unknown, height: unknown, _legacyBonus = false): { base: number; qty: number; bonusApplied: boolean; eligible: boolean } {
-  const qty = calculateSquareFeet(width, height);
-  return { base: qty, qty, bonusApplied: false, eligible: false };
+/** Wallpaper: area = (W × H) / 144 sq.ft.
+ * Normal wallpaper is sold by full rolls: 1 roll = 50 sq.ft, rounded up.
+ * Customize wallpaper continues to use sq.ft quantity.
+ */
+export function calculateWallpaperQty(
+  width: unknown,
+  height: unknown,
+  _legacyBonus = false,
+  type: 'Customize' | 'Normal Wallpaper' | 'Normal' = 'Customize'
+): { base: number; qty: number; bonusApplied: boolean; eligible: boolean } {
+  const area = calculateSquareFeet(width, height);
+  const isNormal = type === 'Normal Wallpaper' || type === 'Normal';
+  const qty = isNormal && area > 0 ? Math.ceil(area / 50) : area;
+  return { base: area, qty, bonusApplied: false, eligible: false };
 }
 
 export const WALLPAPER_BONUS_THRESHOLD_ROLLS = Number.POSITIVE_INFINITY;
