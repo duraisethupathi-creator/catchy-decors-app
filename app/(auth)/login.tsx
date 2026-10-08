@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -17,6 +17,12 @@ import { toast } from '../../src/components/common/ui';
 import { colors } from '../../src/constants/colors';
 import { useLogoSource } from '../../src/context/SettingsContext';
 import { login } from '../../src/services/authService';
+import {
+  biometricAvailable,
+  biometricLogin,
+  enableBiometric,
+  isBiometricEnabled,
+} from '../../src/services/biometricService';
 import { validateLogin } from '../../src/utils/validation';
 import type { Role } from '../../src/services/authService';
 
@@ -27,11 +33,40 @@ export default function Login() {
   const [remember, setRemember] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const [bioReady, setBioReady] = useState(false);
+  const [bioEnabled, setBioEnabled] = useState(false);
   const [forgot, setForgot] = useState(false);
   const logoSource = useLogoSource();
   const [fpUser, setFpUser] = useState('');
   const [fpPin, setFpPin] = useState('');
   const [fpNew, setFpNew] = useState('');
+
+  useEffect(() => {
+    (async () => {
+      const available = await biometricAvailable().catch(() => false);
+      const enabled = available ? await isBiometricEnabled().catch(() => false) : false;
+      setBioReady(available);
+      setBioEnabled(enabled);
+      const remembered = await AsyncStorage.getItem('cd_remember');
+      if (remembered) setUsername(remembered);
+    })();
+  }, []);
+
+  async function doBiometricLogin() {
+    setBusy(true);
+    try {
+      const res = await biometricLogin();
+      if (!res.user) {
+        toast(res.error ?? 'Fingerprint login failed');
+        return;
+      }
+      await AsyncStorage.setItem('cd_role', res.user.role as Role);
+      toast(`Welcome, ${res.user.name}!`);
+      router.replace('/(tabs)/dashboard');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function doLogin() {
     const errs = validateLogin(username, password);
@@ -47,6 +82,10 @@ export default function Login() {
       if (remember) await AsyncStorage.setItem('cd_remember', username);
       else await AsyncStorage.removeItem('cd_remember');
       await AsyncStorage.setItem('cd_role', user.role as Role);
+      if (remember && bioReady && !bioEnabled) {
+        const bio = await enableBiometric(user);
+        if (bio.ok) setBioEnabled(true);
+      }
       toast(`Welcome, ${user.name}!`);
       router.replace('/(tabs)/dashboard');
     } finally {
@@ -107,6 +146,16 @@ export default function Login() {
             </View>
 
             <Button title={busy ? 'Signing in…' : 'Login'} icon="log-in-outline" onPress={doLogin} style={{ marginTop: 8 }} />
+            {bioReady && bioEnabled ? (
+              <TouchableOpacity onPress={doBiometricLogin} disabled={busy} style={styles.biometric}>
+                <Ionicons name="finger-print" size={30} color={colors.orange} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.biometricTitle}>Login with Fingerprint</Text>
+                  <Text style={styles.biometricSub}>Unlock Catchy Decors securely</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+              </TouchableOpacity>
+            ) : null}
             {busy ? <View style={{ marginTop: 10 }}><Button title="Please wait" variant="ghost" onPress={() => {}} disabled /></View> : null}
 
             {forgot ? (
@@ -147,6 +196,20 @@ const styles = StyleSheet.create({
   remember: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   rememberText: { color: colors.textDark, fontSize: 14 },
   forgot: { color: colors.orange, fontWeight: '700', fontSize: 13 },
+  biometric: {
+    marginTop: 12,
+    minHeight: 64,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  biometricTitle: { color: colors.navy, fontWeight: '800', fontSize: 14 },
+  biometricSub: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
   forgotCard: {
     backgroundColor: colors.card,
     borderRadius: 16,
