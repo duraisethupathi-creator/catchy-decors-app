@@ -597,18 +597,28 @@ export default function Preview() {
 
       <Text style={styles.thanks}>Thank you for choosing Catchy Decors!</Text>
 
-      {/* GST BILL editor (toggleable, editable company + customer) */}
+      {/* GST BILL is a separate optional document. Quotation never requires GST. */}
       <Card style={{ marginTop: 14 }}>
-        <TouchableOpacity onPress={() => setShowGstEditor((v) => !v)} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Text style={{ fontWeight: '900', color: colors.navy, fontSize: 15 }}>🧾 GST Tax Invoice (editable)</Text>
-          <Ionicons name={showGstEditor ? 'chevron-up' : 'chevron-down'} size={20} color={colors.navy} />
+        <TouchableOpacity
+          onPress={() => {
+            const next = !showGstEditor;
+            setShowGstEditor(next);
+            if (next && !gst.enabled) setGst((g) => ({ ...g, enabled: true }));
+          }}
+          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+        >
+          <View style={{ flex: 1, paddingRight: 10 }}>
+            <Text style={{ fontWeight: '900', color: colors.navy, fontSize: 15 }}>🧾 Generate Separate GST Bill</Text>
+            <Text style={{ color: colors.textMuted, fontSize: 11.5, marginTop: 3 }}>Optional · quotation PDF stays GST-free</Text>
+          </View>
+          <Ionicons name={showGstEditor ? 'chevron-up' : 'chevron-forward'} size={20} color={colors.navy} />
         </TouchableOpacity>
         {showGstEditor ? (
           <View style={{ marginTop: 12 }}>
             <View style={styles.gstToggleRow}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.gstToggleTitle}>Enable GST Tax Invoice</Text>
-                <Text style={styles.gstToggleHint}>{gst.enabled ? 'GST invoice actions are ready' : 'Turn on to generate and share GST invoice'}</Text>
+                <Text style={styles.gstToggleTitle}>GST Bill Enabled</Text>
+                <Text style={styles.gstToggleHint}>Only the separate GST Invoice PDF will include GST calculations.</Text>
               </View>
               <Switch value={gst.enabled} onValueChange={(v) => { setGst((g) => ({ ...g, enabled: v })); setDirty(true); }} trackColor={{ false: '#CBD2E1', true: colors.orange }} />
             </View>
