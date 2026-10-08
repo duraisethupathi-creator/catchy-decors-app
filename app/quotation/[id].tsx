@@ -9,7 +9,7 @@ import { EmptyState, toast, confirm } from '../../src/components/common/ui';
 import { StatusChip } from '../../src/components/common';
 import { colors } from '../../src/constants/colors';
 import { getQuotation, deleteQuotation, duplicateQuotation, updateQuotationStatus, updateWorkStatus } from '../../src/services/quotationService';
-import { buildQuotationHtml, quotationFileName } from '../../src/services/pdfService';
+import { buildQuotationHtml, buildNonGstBillHtml, buildGstBillHtml, quotationFileName } from '../../src/services/pdfService';
 import { useSettings } from '../../src/context/SettingsContext';
 import { readLogoDataUri } from '../../src/services/logoData';
 import { shareQuotationExcel } from '../../src/services/excelShare';
@@ -49,23 +49,37 @@ export default function QuotationDetail() {
     );
   }
 
-  async function pdf(): Promise<string | null> {
+  async function pdf(kind: 'quotation' | 'bill' | 'gst' = 'quotation'): Promise<string | null> {
     try {
       setBusy(true);
-      const html = buildQuotationHtml(q!, null, {
-        profile: settings.profile,
-        template: settings.template,
-        logoDataUri,
-      });
+      const resolvedLogo = logoDataUri || await readLogoDataUri(settings.profile.logoUri);
+      const ctx = { profile: settings.profile, template: settings.template, logoDataUri: resolvedLogo };
+      const gst = gstInputFromQuotation(q!);
+      const html =
+        kind === 'gst'
+          ? buildGstBillHtml(q!, gst, ctx)
+          : kind === 'bill'
+            ? buildNonGstBillHtml(q!, ctx)
+            : buildQuotationHtml(q!, null, ctx);
       const { uri } = await Print.printToFileAsync({ html, width: 595, height: 842 });
-      toast('PDF ready');
+      toast(kind === 'gst' ? 'GST Tax Invoice ready' : kind === 'bill' ? 'Bill Without GST ready' : 'Quotation PDF ready');
       return uri;
     } catch {
-      toast('PDF failed');
+      toast('PDF generation failed');
       return null;
     } finally {
       setBusy(false);
     }
+  }
+
+  async function sharePdf(kind: 'quotation' | 'bill' | 'gst'): Promise<void> {
+    const uri = await pdf(kind);
+    if (!uri || !(await Sharing.isAvailableAsync())) return;
+    await Sharing.shareAsync(uri, {
+      mimeType: 'application/pdf',
+      dialogTitle: quotationFileName(q!, kind),
+      UTI: 'com.adobe.pdf',
+    });
   }
 
   return (
@@ -161,41 +175,45 @@ export default function QuotationDetail() {
         />
         <View style={{height:8}}/>
         <Button title="Share Quotation PDF to WhatsApp" icon="logo-whatsapp" variant="outline" disabled={busy} onPress={async()=>{
-          const uri=await pdf();
+          const uri=await pdf('quotation');
           if(uri && await Sharing.isAvailableAsync()) await Sharing.shareAsync(uri,{mimeType:'application/pdf',dialogTitle:`WhatsApp - ${quotationFileName(q)}`});
         }}/>
       </View>
 
       <View style={{ gap: 10, marginTop: 16 }}>
-        <Button title={busy ? 'Working…' : 'Regenerate PDF'} icon="document" variant="accent" onPress={pdf} disabled={busy} />
-        <Button title="Share PDF" icon="share-social" onPress={async () => {
-          const uri = await pdf();
-          if (uri && (await Sharing.isAvailableAsync())) {
-            await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: quotationFileName(q) });
-          }
-        }} disabled={busy} />
-        <Button
-          title={busy ? 'Building Excel…' : q.gst?.enabled ? 'Export Excel — Quotation + GST' : 'Export Excel — Quotation'}
-          icon="grid"
-          variant="outline"
-          disabled={busy}
-          onPress={async () => {
-            setBusy(true);
-            try {
-              const res = await shareQuotationExcel(
-                q,
-                { profile: settings.profile, template: settings.template },
-                gstInputFromQuotation(q),
-                'both'
-              );
-              toast(`Excel ready — ${res.name}`);
-            } catch {
-              toast('Excel export failed');
-            } finally {
-              setBusy(false);
-            }
-          }}
-        />
+        <View style={styles.card}>
+          <Text style={styles.sec}>PDF & Billing</Text>
+          <Button title="Quotation PDF" icon="document-text-outline" variant="accent" onPress={() => sharePdf('quotation')} disabled={busy} />
+          <View style={{ height: 8 }} />
+          <Button title="Bill Without GST" icon="receipt-outline" variant="outline" onPress={() => sharePdf('bill')} disabled={busy} />
+          <View style={{ height: 8 }} />
+          <Button title="GST Tax Invoice" icon="receipt" variant="outline" onPress={() => sharePdf('gst')} disabled={busy || !q.gst?.enabled} />
+          {!q.gst?.enabled ? <Text style={styles.billingHint}>Enable GST in the quotation to generate the GST Tax Invoice.</Text> : null}
+          <View style={styles.moreDivider} />
+          <Text style={styles.moreTitle}>More Options</Text>
+          <Button
+            title={busy ? 'Building Excel…' : 'Export Excel (.xlsx)'}
+            icon="grid-outline"
+            variant="ghost"
+            disabled={busy}
+            onPress={async () => {
+              setBusy(true);
+              try {
+                const res = await shareQuotationExcel(
+                  q,
+                  { profile: settings.profile, template: settings.template, logoDataUri },
+                  gstInputFromQuotation(q),
+                  q.gst?.enabled ? 'both' : 'quotation'
+                );
+                toast(`Excel ready — ${res.name}`);
+              } catch {
+                toast('Excel export failed');
+              } finally {
+                setBusy(false);
+              }
+            }}
+          />
+        </View>
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <Button title="Duplicate" icon="copy" variant="outline" style={{ flex: 1 }} onPress={async () => {
             const copy = await duplicateQuotation(q.id);
@@ -241,5 +259,6 @@ const styles = StyleSheet.create({
   workCurrent:{fontSize:16,fontWeight:'900',color:colors.orange,marginBottom:10},workRow:{gap:8,paddingBottom:4},workChip:{paddingHorizontal:13,paddingVertical:9,borderRadius:999,backgroundColor:'#E9EDF4'},workChipOn:{backgroundColor:colors.navy},workChipText:{fontSize:12,fontWeight:'700',color:colors.textMuted},workChipTextOn:{color:'#fff'},
   paySummary:{flexDirection:'row',justifyContent:'space-between',backgroundColor:'#F6F8FC',borderRadius:12,padding:14,marginBottom:12},
   payLabel:{fontSize:11,color:colors.textMuted},paid:{fontSize:18,fontWeight:'900',color:colors.success,marginTop:2},balance:{fontSize:18,fontWeight:'900',color:colors.red,marginTop:2},
+  billingHint:{fontSize:11.5,color:colors.textMuted,marginTop:8},moreDivider:{height:1,backgroundColor:colors.border,marginVertical:14},moreTitle:{fontSize:12,fontWeight:'800',color:colors.textMuted,marginBottom:8},
   payInput:{borderWidth:1,borderColor:'#DDE2EA',borderRadius:12,padding:12,marginBottom:10,color:colors.text},modeRow:{flexDirection:'row',gap:8,marginBottom:12},mode:{paddingHorizontal:16,paddingVertical:8,borderRadius:999,backgroundColor:'#E9EDF4'},modeOn:{backgroundColor:colors.navy},modeText:{color:colors.textMuted,fontWeight:'700'},modeTextOn:{color:'#fff'},paymentRow:{flexDirection:'row',justifyContent:'space-between',paddingVertical:7,borderBottomWidth:1,borderBottomColor:'#EEF1F5'},
 });
