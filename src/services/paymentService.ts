@@ -19,3 +19,46 @@ export async function getPendingPayments():Promise<PendingPayment[]>{
   const quotes=await getQuotations(); const payments=await getPayments();
   return quotes.map(q=>{const paid=payments.filter(p=>p.quotationId===q.id).reduce((s,p)=>s+p.amount,0);return {quotationId:q.id,quotationNumber:q.quotation_number,customerName:q.customer_name||'',customerPhone:q.customer_phone||'',total:q.grand_total,paid,balance:Math.max(0,q.grand_total-paid)};}).filter(x=>x.balance>0).sort((a,b)=>b.balance-a.balance);
 }
+
+
+export const GOOGLE_REVIEW_URL = 'https://g.page/r/CZXutlVz8pW4EBM/review';
+
+function cleanWorkLabel(value: string): string {
+  return value.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+export function buildCustomerPaymentMessage(input: {
+  customerName?: string;
+  quotationNumber?: string;
+  total: number;
+  paid: number;
+  balance: number;
+  workItems?: string[];
+}): string {
+  const name = input.customerName?.trim() || 'Customer';
+  const work = Array.from(new Set((input.workItems ?? []).filter(Boolean).map(cleanWorkLabel)));
+  const workLine = work.length ? `\nWork: ${work.join(', ')}` : '';
+  const refLine = input.quotationNumber ? `\nRef: ${input.quotationNumber}` : '';
+  const money = (n: number) => `₹${Math.max(0, n).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+
+  if (input.balance <= 0) {
+    return `Payment Received ✅
+Hi ${name}, உங்கள் payment முழுமையாக பெற்றுக்கொண்டோம். Catchy Decors-ஐ தேர்வு செய்ததற்கு நன்றி! 🙏${workLine}${refLine}
+Total Paid: ${money(input.paid)}
+மீண்டும் உங்கள் வீட்டை அழகாக்க எங்களை நினைவில் கொள்ளுங்கள். ❤️
+⭐ Google Review: ${GOOGLE_REVIEW_URL}
+Catchy Decors, Karur
+📞 9159194440
+📍 18, 4th Cross, Kamarajapuram, Karur - 639002`;
+  }
+
+  return `Payment Reminder
+Hi ${name}, Catchy Decors payment update.${workLine}${refLine}
+Total: ${money(input.total)}
+Paid: ${money(input.paid)}
+Balance Due: ${money(input.balance)}
+மீதமுள்ள payment-ஐ செலுத்துமாறு அன்புடன் கேட்டுக்கொள்கிறோம்.
+Catchy Decors, Karur
+📞 9159194440
+📍 18, 4th Cross, Kamarajapuram, Karur - 639002`;
+}
