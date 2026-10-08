@@ -440,7 +440,72 @@ export function buildGstBillHtml(
   gst: GstBillSettings,
   ctx?: Partial<DocContext>
 ): string {
-  return buildQuotationHtml(q, { ...gst, enabled: true }, ctx);
+  const { profile, template, logoDataUri } = resolve(ctx);
+  const co = profileToCompany(profile);
+  const company = { ...co, ...(gst.company ?? {}) };
+  const customer = {
+    name: gst.customer?.name || q.customer_name || '',
+    phone: gst.customer?.phone || q.customer_phone || '',
+    address: gst.customer?.address || '',
+    site: gst.customer?.site || q.site_location || '',
+    gstin: gst.customer?.gstin || '',
+  };
+  const sym = template.currencySymbol || '\u20B9';
+  const money = (v: number) => `${sym}${formatINR(round2(v), false)}`;
+  const defaultRate = Number(gst.percent ?? template.gstPercent ?? 0);
+  const items = q.items ?? [];
+  const accessories = q.accessories ?? [];
+
+  const productRows = items.map((it, i) => {
+    const taxable = round2(Number(it.total || 0));
+    const rate = Number(it.gst_percent ?? defaultRate);
+    const tax = round2((taxable * rate) / 100);
+    return `<tr><td>${i + 1}</td><td class="left">${esc(getProduct(it.product_type).name)}${it.type ? ` - ${esc(it.type)}` : ''}</td><td>${esc(template.hsnCode || '-')}</td><td>${it.quantity}</td><td>${money(it.price)}</td><td>${money(taxable)}</td><td>${rate}%</td><td>${money(tax)}</td><td>${money(taxable + tax)}</td></tr>`;
+  }).join('');
+
+  const accessoryRows = accessories.map((a, i) => {
+    const taxable = round2(Number(a.total || 0));
+    const tax = round2((taxable * defaultRate) / 100);
+    return `<tr><td>${items.length + i + 1}</td><td class="left">${esc(a.track_type || 'Accessory')}</td><td>${esc(template.hsnCode || '-')}</td><td>${a.quantity}</td><td>${money(a.price)}</td><td>${money(taxable)}</td><td>${defaultRate}%</td><td>${money(tax)}</td><td>${money(taxable + tax)}</td></tr>`;
+  }).join('');
+
+  const productTaxable = round2(items.reduce((s, it) => s + Number(it.total || 0), 0));
+  const productTax = round2(items.reduce((s, it) => s + Number(it.total || 0) * Number(it.gst_percent ?? defaultRate) / 100, 0));
+  const accessoryTaxable = round2(accessories.reduce((s, a) => s + Number(a.total || 0), 0));
+  const otherTaxable = round2(Number(q.other_charges || 0));
+  const discount = round2(Number(q.discount || 0));
+  const taxable = round2(productTaxable + accessoryTaxable + otherTaxable - discount);
+  const nonProductTax = round2(((accessoryTaxable + otherTaxable - discount) * defaultRate) / 100);
+  const totalTax = round2(productTax + nonProductTax);
+  const cgst = round2(totalTax / 2);
+  const sgst = round2(totalTax - cgst);
+  const grand = round2(taxable + totalTax);
+  const invoiceNo = gst.invoiceNumber?.trim() || `INV-${q.quotation_number}`;
+  const logo = template.showLogo && logoDataUri ? `<img class="logo" src="${esc(logoDataUri)}" />` : '';
+
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/><style>
+  @page{size:A4;margin:0}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#17213d;font-size:10px;margin:0}
+  .head{background:#101D4A;color:#fff;padding:18px 24px;display:flex;justify-content:space-between}.brand{display:flex;gap:12px;align-items:center}.logo{width:58px;height:58px;object-fit:contain;background:#fff;border-radius:8px;padding:3px}
+  h1{font-size:21px;margin:0}.tag{color:#f3b21a;font-size:9px;margin-top:4px}.co{text-align:right;line-height:1.55}.title{text-align:center;font-size:18px;font-weight:700;padding:12px;border-bottom:2px solid #101D4A}
+  .info{display:flex;justify-content:space-between;padding:12px 24px;line-height:1.6}.box{width:48%}.label{color:#69718a}.strong{font-weight:700}
+  table{width:calc(100% - 48px);margin:8px 24px;border-collapse:collapse}th{background:#101D4A;color:#fff;padding:6px 3px;font-size:8.5px}td{border:1px solid #dfe3eb;padding:6px 3px;text-align:center}.left{text-align:left}
+  .totals{width:46%;margin-left:auto;margin-right:24px}.totals td{border:none;padding:4px 6px}.totals td:first-child{text-align:right;color:#69718a}.totals td:last-child{text-align:right;font-weight:700}.grand td{font-size:13px;border-top:2px solid #101D4A;color:#b3131b}
+  .words,.payment,.terms{margin:12px 24px;padding:9px;border:1px solid #dfe3eb;border-radius:6px;line-height:1.55}.signs{display:flex;justify-content:space-between;margin:42px 24px 15px}.sign{width:190px;border-top:1px solid #17213d;padding-top:5px;text-align:center}.footer{text-align:center;background:#f4f6fa;padding:10px;color:#69718a}
+  </style></head><body>
+  <div class="head"><div class="brand">${logo}<div><h1>${esc(company.name)}</h1><div class="tag">${esc(company.tagline || '')}</div></div></div><div class="co">${esc(company.addressLine1 || '')}<br/>${esc(company.addressLine2 || '')}<br/>${esc(company.addressLine3 || '')} ${esc(company.addressLine4 || '')}<br/>Phone: ${esc(company.phone || '')}<br/>${esc(company.website || '')}<br/>${company.gstin ? `GSTIN: ${esc(company.gstin)}` : ''}</div></div>
+  <div class="title">TAX INVOICE</div>
+  <div class="info"><div class="box"><span class="label">Invoice No:</span> <span class="strong">${esc(invoiceNo)}</span><br/><span class="label">Invoice Date:</span> ${formatDate(q.quotation_date)}<br/><span class="label">Quotation Ref:</span> ${esc(q.quotation_number)}</div>
+  <div class="box"><span class="label">Bill To</span><br/><span class="strong">${esc(customer.name)}</span><br/>${esc(customer.phone)}${customer.address ? `<br/>${esc(customer.address)}` : ''}${customer.site ? `<br/>Site: ${esc(customer.site)}` : ''}${customer.gstin ? `<br/>GSTIN: ${esc(customer.gstin)}` : ''}</div></div>
+  <table><tr><th>S.No</th><th>Description</th><th>HSN/SAC</th><th>Qty</th><th>Rate</th><th>Taxable</th><th>GST %</th><th>GST Amt</th><th>Total</th></tr>
+  ${productRows}${accessoryRows || ''}${!productRows && !accessoryRows ? '<tr><td colspan="9">No items</td></tr>' : ''}</table>
+  <table class="totals"><tr><td>Taxable Amount</td><td>${money(taxable)}</td></tr>${discount ? `<tr><td>Discount</td><td>-${money(discount)}</td></tr>` : ''}
+  <tr><td>CGST</td><td>${money(cgst)}</td></tr><tr><td>SGST</td><td>${money(sgst)}</td></tr><tr><td>Total GST</td><td>${money(totalTax)}</td></tr><tr class="grand"><td>GRAND TOTAL</td><td>${money(grand)}</td></tr></table>
+  <div class="words"><b>Tax Summary:</b> GST is calculated item-wise; default GST rate ${defaultRate}%. CGST and SGST are shown equally for this invoice.</div>
+  ${template.showBankDetails && (co.bankName || co.upiId) ? `<div class="payment"><b>Payment Details</b><br/>${co.bankName ? `Bank: ${esc(co.bankName)}<br/>` : ''}${co.bankAccount ? `A/C: ${esc(co.bankAccount)}<br/>` : ''}${co.bankIfsc ? `IFSC: ${esc(co.bankIfsc)}<br/>` : ''}${co.upiId ? `UPI: ${esc(co.upiId)}` : ''}</div>` : ''}
+  ${template.terms ? `<div class="terms"><b>Terms & Conditions</b><br/>${nl2br(template.terms)}</div>` : ''}
+  <div class="signs"><div class="sign">Customer Signature</div><div class="sign">Authorised Signatory<br/>For ${esc(company.name)}</div></div>
+  <div class="footer">${esc(company.name)} · ${esc(company.phone || '')} · ${esc(company.website || '')}${company.gstin ? ` · GSTIN ${esc(company.gstin)}` : ''}</div>
+  </body></html>`;
 }
 
 /** PDF filename derived from the sanitized customer name. */
