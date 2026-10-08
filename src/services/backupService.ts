@@ -19,7 +19,7 @@ const DATA_KEYS = [
 export async function collectBackup(): Promise<BackupPayload> {
   const allKeys = await AsyncStorage.getAllKeys();
   const owned = allKeys.filter(
-    (k) => k.startsWith('cd_') && !k.startsWith('cd_sync_') && !k.startsWith('cd_google_') && !k.startsWith('cd_pin_')
+    (k) => k.startsWith('cd_') && !k.startsWith('cd_sync_') && !k.startsWith('cd_google_') && !k.startsWith('cd_pin_') && !['cd_session','cd_role','cd_users','cd_remember'].includes(k)
   );
   const pairs = await AsyncStorage.multiGet(owned);
   const data: Record<string, string> = {};
@@ -45,7 +45,7 @@ export async function restoreBackup(payload: BackupPayload): Promise<RestoreResu
   if (!payload || payload.app !== 'catchy-decors' || typeof payload.data !== 'object') {
     throw new Error('This file is not a CATCHY DECORS backup');
   }
-  const entries = Object.entries(payload.data).filter(([k]) => k.startsWith('cd_'));
+  const entries = Object.entries(payload.data).filter(([k]) => k.startsWith('cd_') && !['cd_session','cd_role','cd_users','cd_remember'].includes(k));
   let restored = 0;
   let skipped = 0;
   for (const [k, v] of entries) {
