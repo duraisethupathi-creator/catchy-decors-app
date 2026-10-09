@@ -85,6 +85,26 @@ export async function upsertRow(
   }
 }
 
+/** Delete one record by id via PostgREST. Used by multi-device tombstone sync. */
+export async function deleteRow(
+  table: string,
+  id: string
+): Promise<{ ok: boolean; error?: string }> {
+  await hydrateSupabaseConfig();
+  if (!isSupabaseConfigured()) return { ok: false, error: 'not-configured' };
+  try {
+    const encodedId = encodeURIComponent(id);
+    const res = await fetch(`${url}/rest/v1/${table}?id=eq.${encodedId}`, {
+      method: 'DELETE',
+      headers: { ...headers(), Prefer: 'return=minimal' },
+    });
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status} ${await safeText(res)}` };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
 /** Fetch every row of a table (used by the pull/restore direction). */
 export async function fetchAllRows<T = Record<string, unknown>>(
   table: string
