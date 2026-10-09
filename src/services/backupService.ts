@@ -86,11 +86,18 @@ export function backupFileName(nameHint?: string): string {
 const AUTO_BACKUP_KEY = 'cd_auto_backup';
 const AUTO_BACKUP_LAST_KEY = 'cd_auto_backup_last';
 
+function localDateKey(date = new Date()): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 /** Run at most one Drive backup per local calendar day when enabled and signed in. */
 export async function runDailyAutoBackup(): Promise<boolean> {
   const enabled = await AsyncStorage.getItem(AUTO_BACKUP_KEY);
   if (enabled !== '1') return false;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateKey();
   if ((await AsyncStorage.getItem(AUTO_BACKUP_LAST_KEY)) === today) return false;
   const { getStoredSession } = await import('./googleAuth');
   if (!(await getStoredSession())) return false;
