@@ -169,8 +169,14 @@ export async function pushToSupabase(): Promise<{ ok: boolean; detail: string }>
     /* best-effort only — never fail the whole push for settings */
   }
 
-  await AsyncStorage.setItem('cd_sync_last', new Date().toISOString());
-  await AsyncStorage.setItem('cd_sync_queue', JSON.stringify([]));
+  if (failed === 0) {
+    await AsyncStorage.setItem('cd_sync_last', new Date().toISOString());
+    await AsyncStorage.setItem('cd_sync_queue', JSON.stringify([]));
+  } else {
+    // Keep the queue intact when any table fails. Clearing it here would mark
+    // unsent offline edits as synced and they could be lost on the next pull.
+    lines.push('Sync queue kept for retry because one or more uploads failed.');
+  }
   await emit(await getSyncState());
   return { ok: failed === 0, detail: lines.join('\n') };
 }
