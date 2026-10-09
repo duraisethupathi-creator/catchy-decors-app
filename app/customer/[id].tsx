@@ -7,15 +7,26 @@ import { EmptyState } from '../../src/components/common/ui';
 import { colors } from '../../src/constants/colors';
 import { getCustomer, saveCustomer } from '../../src/services/customerService';
 import type { Customer } from '../../src/types/customer';
+import type { Quotation } from '../../src/types/quotation';
+import { getQuotationsByCustomer } from '../../src/services/quotationService';
+import { getPayments } from '../../src/services/paymentService';
 
 export default function CustomerDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [customer, setCustomer] = useState<Customer | null>(null);
+  const [history, setHistory] = useState<Array<{ quotation: Quotation; paid: number; balance: number }>>([]);
 
   useFocusEffect(
     useCallback(() => {
-      getCustomer(String(id)).then(setCustomer);
+      const customerId = String(id);
+      getCustomer(customerId).then(setCustomer);
+      Promise.all([getQuotationsByCustomer(customerId), getPayments()]).then(([quotes, payments]) => {
+        setHistory(quotes.map((quotation) => {
+          const paid = payments.filter((p) => p.quotationId === quotation.id).reduce((sum, p) => sum + p.amount, 0);
+          return { quotation, paid, balance: Math.max(0, quotation.grand_total - paid) };
+        }));
+      });
     }, [id])
   );
 
@@ -55,6 +66,24 @@ export default function CustomerDetail() {
         <Button title="Measurements" icon="resize" variant="accent" style={{ flex: 1 }} onPress={() => router.push(`/measurement/new?customerId=${customer.id}` as never)} />
         <Button title="Quotation" icon="document" style={{ flex: 1 }} onPress={() => router.push(`/quotation/new?customerId=${customer.id}` as never)} />
       </View>
+
+      <View style={{ marginTop: 20 }}>
+        <Text style={styles.historyTitle}>Purchase & Payment History</Text>
+        {history.length === 0 ? (
+          <Text style={styles.historyEmpty}>No quotations or payments yet.</Text>
+        ) : history.map(({ quotation, paid, balance }) => (
+          <Card key={quotation.id}>
+            <Text style={styles.historyNumber}>{quotation.quotation_number}</Text>
+            <Text style={styles.historyMeta}>{new Date(quotation.quotation_date).toLocaleDateString('en-IN')} · {(quotation.work_status ?? quotation.status).replace(/_/g, ' ').toUpperCase()}</Text>
+            <View style={styles.historyMoney}>
+              <Text style={styles.historyValue}>Total ₹{quotation.grand_total.toLocaleString('en-IN')}</Text>
+              <Text style={styles.historyPaid}>Paid ₹{paid.toLocaleString('en-IN')}</Text>
+              <Text style={balance > 0 ? styles.historyBalance : styles.historyPaid}>Balance ₹{balance.toLocaleString('en-IN')}</Text>
+            </View>
+            <Button title="Open Quotation" icon="document-text-outline" onPress={() => router.push(`/quotation/${quotation.id}` as never)} />
+          </Card>
+        ))}
+      </View>
     </ScrollView>
   );
 }
@@ -64,4 +93,12 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
   name: { fontSize: 20, fontWeight: '900', color: colors.navy },
   phone: { color: colors.textMuted, fontSize: 13.5, marginTop: 2 },
+  historyTitle: { fontSize: 18, fontWeight: '900', color: colors.navy, marginBottom: 10 },
+  historyEmpty: { color: colors.textMuted, fontSize: 14, paddingVertical: 12 },
+  historyNumber: { fontSize: 16, fontWeight: '800', color: colors.navy },
+  historyMeta: { color: colors.textMuted, fontSize: 12.5, marginTop: 3, marginBottom: 10 },
+  historyMoney: { gap: 4, marginBottom: 12 },
+  historyValue: { fontSize: 14, fontWeight: '700', color: colors.navy },
+  historyPaid: { fontSize: 13.5, fontWeight: '700', color: colors.success },
+  historyBalance: { fontSize: 13.5, fontWeight: '800', color: colors.danger },
 });
