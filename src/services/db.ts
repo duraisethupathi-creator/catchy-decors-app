@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+  deleteRow,
   fetchAllRows,
   hydrateSupabaseConfig,
   isSupabaseConfigured,
@@ -77,10 +78,11 @@ export async function syncWithSupabase(): Promise<boolean> {
     for (const entry of queue) {
       const [table, id] = entry.split(':');
       const payload = await AsyncStorage.getItem(`cd_${table}_${id}`);
-      // Missing local payload must stay queued. Silently dropping it would make
-      // a local delete look "synced" even though the cloud row still exists.
+      // A missing per-record payload is a delete tombstone. Propagate the
+      // deletion to cloud; keep it queued if the request fails/offline.
       if (!payload) {
-        remaining.push(entry);
+        const res = await deleteRow(table, id);
+        if (!res.ok) remaining.push(entry);
         continue;
       }
       const record = JSON.parse(payload);
