@@ -137,7 +137,19 @@ export default function QuotationDetail() {
           if(amount<=0) return Alert.alert('Payment','Enter a valid amount.');
           if(amount>balance) return Alert.alert('Payment',`Balance amount is ${formatINR(balance)}`);
           await addPayment({quotationId:q.id,amount,mode:paymentMode});
-          const p=await paymentSummary(q.id,q.grand_total); setPayments(p.rows); setPaid(p.paid); setBalance(p.balance); setPaymentAmount(''); toast('Payment saved');
+          const p=await paymentSummary(q.id,q.grand_total);
+          setPayments(p.rows); setPaid(p.paid); setBalance(p.balance); setPaymentAmount('');
+          // Keep work status consistent with the actual payment balance.
+          // Full payment automatically closes the job as Paid; a partial payment
+          // moves a completed job to Payment Pending.
+          if (p.balance <= 0 && q.work_status !== 'paid') {
+            await updateWorkStatus(q.id,'paid');
+            setQ(await getQuotation(q.id));
+          } else if (p.balance > 0 && q.work_status === 'completed') {
+            await updateWorkStatus(q.id,'payment_pending');
+            setQ(await getQuotation(q.id));
+          }
+          toast(p.balance <= 0 ? 'Payment saved · Fully paid' : 'Payment saved');
         }}/>
         {payments.slice(0,5).map(p=><View key={p.id} style={styles.paymentRow}><Text style={styles.itemText}>{new Date(p.date).toLocaleDateString('en-IN')} · {p.mode}</Text><Text style={styles.itemTotal}>{formatINR(p.amount)}</Text></View>)}
       </View>
