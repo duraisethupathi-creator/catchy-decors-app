@@ -4,7 +4,8 @@ export type ExpenseCategory='Material'|'Stitching'|'Transport'|'Installation'|'L
 export interface Expense{id:string;quotationId?:string;category:ExpenseCategory;description:string;amount:number;date:string;updated_at?:string;}
 const KEY='cd_expenses';
 export async function getExpenses():Promise<Expense[]>{try{return JSON.parse((await AsyncStorage.getItem(KEY))||'[]')}catch{return []}}
-export async function addExpense(input:Omit<Expense,'id'|'date'>):Promise<Expense>{const now=new Date().toISOString();const e:Expense={...input,id:uuid(),date:now,updated_at:now};const rows=await getExpenses();rows.unshift(e);await AsyncStorage.setItem(KEY,JSON.stringify(rows));await AsyncStorage.setItem(`cd_expenses_${e.id}`,JSON.stringify(e));await queueForSync('expenses',e.id);return e}
+export async function addExpense(input:Omit<Expense,'id'|'date'> & {date?:string}):Promise<Expense>{const now=new Date().toISOString();const e:Expense={...input,id:uuid(),date:input.date||now,updated_at:now};const rows=await getExpenses();rows.unshift(e);await AsyncStorage.setItem(KEY,JSON.stringify(rows));await AsyncStorage.setItem(`cd_expenses_${e.id}`,JSON.stringify(e));await queueForSync('expenses',e.id);return e}
+export async function updateExpense(id:string,patch:Partial<Omit<Expense,'id'>>):Promise<Expense|null>{const rows=await getExpenses();const index=rows.findIndex(e=>e.id===id);if(index<0)return null;const updated:Expense={...rows[index],...patch,id,updated_at:new Date().toISOString()};rows[index]=updated;await AsyncStorage.setItem(KEY,JSON.stringify(rows));await AsyncStorage.setItem(`cd_expenses_${id}`,JSON.stringify(updated));await queueForSync('expenses',id);return updated}
 export async function deleteExpense(id:string){
  const rows=await getExpenses();
  await AsyncStorage.setItem(KEY,JSON.stringify(rows.filter(e=>e.id!==id)));
