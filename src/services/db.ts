@@ -77,7 +77,12 @@ export async function syncWithSupabase(): Promise<boolean> {
     for (const entry of queue) {
       const [table, id] = entry.split(':');
       const payload = await AsyncStorage.getItem(`cd_${table}_${id}`);
-      if (!payload) continue; // record deleted locally
+      // Missing local payload must stay queued. Silently dropping it would make
+      // a local delete look "synced" even though the cloud row still exists.
+      if (!payload) {
+        remaining.push(entry);
+        continue;
+      }
       const record = JSON.parse(payload);
       const res = await upsertRow(table, record);
       if (!res.ok) remaining.push(entry);
