@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -58,6 +58,8 @@ export default function NewQuotation() {
   const [rateRows, setRateRows] = useState<RateItem[]>([]);
   const [rateProduct, setRateProduct] = useState<'curtains'|'blinds'|'mosquito_net'|'wallpaper'|'headboard'|'cushion'|'flooring'|'accessories'>('curtains');
   const [rateType, setRateType] = useState(''); const [rateMaterial,setRateMaterial]=useState(''); const [rateValue,setRateValue]=useState('');
+  const draftReady = useRef(false);
+  const draftSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -83,9 +85,32 @@ export default function NewQuotation() {
         const draftCharges = await loadChargesDraft(cid);
         if (draftCharges.length > 0) setCharges(bundleFromChargesWithExtras(draftCharges));
         setQNumber(await peekQuotationNumber());
+        draftReady.current = true;
       })();
     }, [params.customerId])
   );
+
+  // Keep Accessories + Other Charges safe even when the user presses Android Back
+  // or navigates to another screen without tapping Save Draft.
+  useEffect(() => {
+    if (!draftReady.current || !customer) return;
+    if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current);
+    draftSaveTimer.current = setTimeout(async () => {
+      const accDraft: Accessory[] = accRows.map((r) => ({
+        id: r.id,
+        customer_id: customer.id,
+        area_name: r.area,
+        track_type: r.trackType,
+        width: Number(r.width) || 0,
+        quantity: calculateAccessories(r.width),
+        price: Number(r.price) || 0,
+        total: calculateTotal(calculateAccessories(r.width), r.price),
+      }));
+      await saveAccessories(customer.id, accDraft);
+      await saveChargesDraft(customer.id, buildCharges({ ...charges, stitchingQty: String(curtainParts || '') }).charges);
+    }, 250);
+    return () => { if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current); };
+  }, [accRows, charges, customer, curtainParts]);
 
   function accQty(r: AccRow): number { return calculateAccessories(r.width); }
   function accTotal(r: AccRow): number { return calculateTotal(accQty(r), r.price); }
