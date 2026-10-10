@@ -71,7 +71,7 @@ export const PRODUCTS: ProductDef[] = [
   {
     key: 'cushion',
     name: 'Cushion',
-    icon: 'sofa-outline',
+    icon: 'layers-outline',
     description: 'Wooden sofa, dining & seat cushions',
     typeLabel: 'Cushion Type',
     typeOptions: ['Wooden Sofa Cushion', 'Dining Cushion', 'Seat Cushion'],
