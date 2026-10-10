@@ -386,9 +386,17 @@ export default function NewQuotation() {
                   placeholder="e.g. Packing, Rod bending, Tax"
                 />
               </View>
+              <View style={{ flex: 0.65, marginRight: 8 }}>
+                <Field
+                  label="Quantity"
+                  value={row.quantity}
+                  onChangeText={(t) => updExtra(row.id, { quantity: numericInput(t) })}
+                  keyboardType="numeric"
+                />
+              </View>
               <View style={{ flex: 1 }}>
                 <Field
-                  label="Amount (₹)"
+                  label="Price (₹)"
                   value={row.amount}
                   onChangeText={(t) => updExtra(row.id, { amount: numericInput(t) })}
                   keyboardType="numeric"
