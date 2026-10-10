@@ -178,8 +178,9 @@ export function buildQuotationHtml(
           if (template.showSerialColumn) cells.push(`<td>${i + 1}</td>`);
           if (template.showAreaColumn) cells.push(`<td style="text-align:left">${esc(a.area_name)}</td>`);
           cells.push(`<td style="text-align:left">${esc(tOpt(a.track_type))}</td>`);
-          if (template.showTypeColumn) cells.push('<td>-</td>');
-          if (template.showFabricColumn) cells.push('<td>-</td>');
+          // Accessories use their own fixed table columns. Do not insert the
+          // product-only Type/Fabric placeholder cells here; doing so shifts
+          // Width into Qty, Qty into Price and Price into Total in the PDF.
           if (template.showWidthColumn) cells.push(`<td>${a.width || '-'}</td>`);
           cells.push(`<td>${a.quantity}</td>`);
           cells.push(`<td>${money(a.price)}</td>`);
