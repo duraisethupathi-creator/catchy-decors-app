@@ -140,9 +140,12 @@ export default function QuotationDetail() {
         <TextInput style={styles.payInput} value={paymentAmount} onChangeText={setPaymentAmount} keyboardType="decimal-pad" placeholder="Enter payment amount" />
         <View style={styles.modeRow}>{(['Cash','UPI','Bank'] as PaymentMode[]).map(m=><TouchableOpacity key={m} onPress={()=>setPaymentMode(m)} style={[styles.mode, paymentMode===m&&styles.modeOn]}><Text style={[styles.modeText,paymentMode===m&&styles.modeTextOn]}>{m}</Text></TouchableOpacity>)}</View>
         <Button title="Add Payment" icon="cash" variant="accent" onPress={async()=>{
-          const amount=Number(paymentAmount)||0;
+          // Accept both plain decimal input (30000.70) and display-style
+          // Indian grouping (30,000.70). Number("30,000.70") is NaN.
+          const normalizedAmount = paymentAmount.replace(/,/g, '').trim();
+          const amount=Number(normalizedAmount)||0;
           if(amount<=0) return Alert.alert('Payment','Enter a valid amount.');
-          if(amount>balance) return Alert.alert('Payment',`Balance amount is ${formatINR(balance)}`);
+          if(amount>balance + 0.001) return Alert.alert('Payment',`Balance amount is ${formatINR(balance)}`);
           await addPayment({quotationId:q.id,amount,mode:paymentMode});
           const p=await paymentSummary(q.id,q.grand_total);
           setPayments(p.rows); setPaid(p.paid); setBalance(p.balance); setPaymentAmount('');
