@@ -51,6 +51,7 @@ export async function saveQuotation(input: {
   grand_total: number;
   status: QuotationStatus;
   gst?: Quotation['gst'];
+  reference_photos?: Quotation['reference_photos'];
 }): Promise<Quotation> {
   const now = new Date().toISOString();
   const quotation: Quotation = {
@@ -70,6 +71,7 @@ export async function saveQuotation(input: {
     items: input.items,
     accessories: input.accessories,
     charges: input.charges,
+    reference_photos: input.reference_photos ?? [],
     site_location: (input.customer as { site_location?: string }).site_location,
     gst: input.gst,
     updated_at: now,
