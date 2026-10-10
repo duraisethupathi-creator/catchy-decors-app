@@ -212,7 +212,7 @@ export default function Measurements() {
       <Text style={styles.sub}>{customer ? `${customer.name} · ${customer.phone}` : 'Loading customer…'}</Text>
 
       <Text style={styles.sectionLabel}>Product Categories</Text>
-      <View style={styles.catGrid}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catScroll}>
         {PRODUCTS.map((p) => {
           const active = selectedProducts.includes(p.key);
           return (
@@ -226,7 +226,7 @@ export default function Measurements() {
             </TouchableOpacity>
           );
         })}
-      </View>
+      </ScrollView>
 
       {activeRow ? (() => {
         const row=activeRow, def=getProduct(row.product), qty=quantityOf(row), tot=totalOf(row);
@@ -237,7 +237,7 @@ export default function Measurements() {
           {(row.product==='blinds'||row.product==='mosquito_net')?<><Text style={styles.miniLabel}>Measurement Unit</Text><ChipGroup options={['inch','mm']} selected={row.measurementUnit} onSelect={v=>updateRow(row.id,{measurementUnit:v as 'inch'|'mm'})}/></>:null}
           {row.product==='curtains'?<Field label="Part" value={row.part} onChangeText={t=>updateRow(row.id,{part:numericInput(t)})} keyboardType="numeric" placeholder="0"/>:null}
           <View style={styles.halfRow}><View style={{flex:1,marginRight:8}}><Field label={def.formula==='accessories'?'Curtain Width (in)':def.formula==='linear_meter'?'Material (mtr)':'Width (in)'} value={row.width} onChangeText={t=>updateRow(row.id,{width:numericInput(t)})} keyboardType="numeric" placeholder="0"/></View>{def.usesHeight?<View style={{flex:1}}><Field label="Height" value={row.height} onChangeText={t=>updateRow(row.id,{height:numericInput(t)})} keyboardType="numeric" placeholder="0"/></View>:<View style={{flex:1}}/>}</View>
-          <View style={styles.halfRow}><View style={{flex:1,marginRight:8}}><Field label="Fabric Details" value={row.fabricType} onChangeText={t=>updateRow(row.id,{fabricType:t})} placeholder="e.g. Cotton, Blackout"/></View><View style={{flex:1}}><Field label="Fabric Area (sq.ft)" value={row.fabricArea} onChangeText={t=>updateRow(row.id,{fabricArea:numericInput(t)})} keyboardType="numeric" placeholder="0"/></View></View>
+          <Field label="Fabric Details" value={row.fabricType} onChangeText={t=>updateRow(row.id,{fabricType:t})} placeholder="e.g. Cotton, Blackout"/>
           <Field label="Price (₹)" value={row.price} onChangeText={t=>updateRow(row.id,{price:numericInput(t)})} keyboardType="numeric" placeholder="0"/>
           <View style={styles.preview}><Text style={styles.previewLabel}>LIVE CALCULATION</Text><View style={{flexDirection:'row',justifyContent:'space-between',marginTop:6}}><Text style={styles.previewQty}>Quantity ({def.qtyUnit}): <Text style={styles.previewVal}>{qty}</Text></Text><Text style={styles.previewQty}>Total: <Text style={styles.previewVal}>{formatINR(tot)}</Text></Text></View></View>
           <View style={{flexDirection:'row',gap:8,marginTop:12}}><Button title="Delete" icon="trash-outline" variant="outline" style={{flex:1}} onPress={()=>removeRow(row.id)}/><Button title="Add to List" icon="add" variant="accent" style={{flex:2}} onPress={()=>{setActiveId('');toast('Item added · Auto saved');}}/></View>
@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: '900', color: colors.navy },
   sub: { color: colors.textMuted, fontSize: 13.5, marginTop: 4 },
   sectionLabel: { fontWeight: '800', color: colors.text, marginTop: 18, marginBottom: 8, fontSize: 15 },
-  catGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  catScroll: { gap: 10, paddingRight: 18 },
   catCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -286,6 +286,8 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 10,
+    minWidth: 126,
+    justifyContent: 'center',
   },
   catCardActive: { backgroundColor: colors.navy, borderColor: colors.navy },
   catName: { fontWeight: '700', color: colors.textDark, fontSize: 13.5 },
