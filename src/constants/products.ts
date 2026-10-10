@@ -3,6 +3,7 @@ export type ProductKey =
   | 'blinds'
   | 'wallpaper'
   | 'headboard'
+  | 'cushion'
   | 'flooring'
   | 'mosquito_net'
   | 'accessories';
@@ -14,7 +15,7 @@ export interface ProductDef {
   description: string;
   typeLabel: string;
   typeOptions: string[];
-  formula: 'curtain' | 'square_feet' | 'accessories' | 'wallpaper';
+  formula: 'curtain' | 'square_feet' | 'accessories' | 'wallpaper' | 'linear_meter';
   usesHeight: boolean;
   /** Unit shown next to "Qty" in quotation tables — e.g. mtr, R.ft, sq.ft, rolls. */
   qtyUnit: string;
@@ -66,6 +67,17 @@ export const PRODUCTS: ProductDef[] = [
     formula: 'square_feet',
     usesHeight: true,
     qtyUnit: 'sq.ft',
+  },
+  {
+    key: 'cushion',
+    name: 'Cushion',
+    icon: 'sofa-outline',
+    description: 'Wooden sofa, dining & seat cushions',
+    typeLabel: 'Cushion Type',
+    typeOptions: ['Wooden Sofa Cushion', 'Dining Cushion', 'Seat Cushion'],
+    formula: 'linear_meter',
+    usesHeight: false,
+    qtyUnit: 'mtr',
   },
   {
     key: 'flooring',
