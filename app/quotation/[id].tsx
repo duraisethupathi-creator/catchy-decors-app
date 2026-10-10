@@ -165,7 +165,7 @@ export default function QuotationDetail() {
             const rawPhone=String(q.customer_phone??'').replace(/\D/g,'');
             const mobile=rawPhone.length===10?`91${rawPhone}`:rawPhone;
             if (mobile) {
-              const msg=buildAdvancePaymentMessage({customerName:q.customer_name,quotationNumber:q.quotation_number,total:q.grand_total,advanceAmount:amount,balance:p.balance});
+              const msg=buildAdvancePaymentMessage({customerName:q.customer_name,quotationNumber:q.quotation_number,total:q.grand_total,advanceAmount:amount,balance:p.balance,paymentMode});
               const waUrl=`https://wa.me/${mobile}?text=${encodeURIComponent(msg)}`;
               if(await Linking.canOpenURL(waUrl)) await Linking.openURL(waUrl);
             }
