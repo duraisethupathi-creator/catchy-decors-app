@@ -1,0 +1,46 @@
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system';
+import { getQuotations } from './quotationService';
+import { getPayments } from './paymentService';
+import { getExpenses } from './expenseService';
+import { getServiceBills } from './serviceBillService';
+
+export type ReportPeriod = 'daily' | 'weekly' | 'monthly' | 'yearly';
+
+const money=(n:number)=>'₹'+Number(n||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+const esc=(s:unknown)=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]||m));
+const startOf=(period:ReportPeriod,now=new Date())=>{const d=new Date(now);d.setHours(0,0,0,0);if(period==='weekly')d.setDate(d.getDate()-((d.getDay()+6)%7));else if(period==='monthly')d.setDate(1);else if(period==='yearly'){d.setMonth(0);d.setDate(1);}return d;};
+const inRange=(value:string|undefined,start:Date,end:Date)=>{if(!value)return false;const d=new Date(value);return !Number.isNaN(d.getTime())&&d>=start&&d<=end;};
+const label=(p:ReportPeriod,s:Date,e:Date)=>p==='daily'?s.toLocaleDateString('en-IN'):p==='weekly'?s.toLocaleDateString('en-IN')+' - '+e.toLocaleDateString('en-IN'):p==='monthly'?s.toLocaleDateString('en-IN',{month:'long',year:'numeric'}):String(s.getFullYear());
+
+export async function shareCompleteReportPdf(period:ReportPeriod){
+ const end=new Date(), start=startOf(period,end);
+ const [quotes,payments,expenses,services]=await Promise.all([getQuotations(),getPayments(),getExpenses(),getServiceBills()]);
+ const qs=quotes.filter(q=>inRange(q.quotation_date||q.created_at,start,end));
+ const ps=payments.filter(p=>inRange(p.date,start,end));
+ const es=expenses.filter(e=>inRange(e.date,start,end));
+ const ss=services.filter(s=>inRange(s.date,start,end));
+ const quotationTotal=qs.reduce((a,q)=>a+(q.grand_total||0),0);
+ const received=ps.reduce((a,p)=>a+(p.amount||0),0);
+ const expenseTotal=es.reduce((a,e)=>a+(e.amount||0),0);
+ const serviceTotal=ss.reduce((a,s)=>a+(s.grandTotal||0),0);
+ const net=received+serviceTotal-expenseTotal;
+ const rows=(items:any[],fn:(x:any)=>string)=>items.length?items.map(fn).join(''):'<tr><td colspan="5" class="empty">No records</td></tr>';
+ const html=`<!doctype html><html><head><meta charset="utf-8"><style>
+ @page{margin:24px}body{font-family:Arial,sans-serif;color:#14213d;font-size:11px}h1{margin:0;color:#10285f}h2{font-size:14px;margin:20px 0 7px}.top{border-bottom:3px solid #f28c18;padding-bottom:10px}.sub{color:#667085;margin-top:3px}.grid{display:flex;gap:8px;margin-top:14px}.box{flex:1;border:1px solid #d8deea;border-radius:7px;padding:9px}.box b{display:block;font-size:15px;margin-top:3px}table{width:100%;border-collapse:collapse}th{background:#10285f;color:white;text-align:left;padding:6px}td{border-bottom:1px solid #e6e9ef;padding:6px}.num{text-align:right}.empty{text-align:center;color:#777}.foot{margin-top:24px;text-align:center;color:#777;font-size:9px}
+ </style></head><body><div class="top"><h1>CATCHY DECORS</h1><div class="sub">Complete Business Report · ${esc(label(period,start,end))}</div><div class="sub">Karur · 9159194440 · www.catchydecors.in</div></div>
+ <div class="grid"><div class="box">Quotation Value<b>${money(quotationTotal)}</b></div><div class="box">Payments Received<b>${money(received)}</b></div><div class="box">Service Bills<b>${money(serviceTotal)}</b></div><div class="box">Expenses<b>${money(expenseTotal)}</b></div><div class="box">Net Cash<b>${money(net)}</b></div></div>
+ <h2>Quotations (${qs.length})</h2><table><tr><th>No.</th><th>Customer</th><th>Date</th><th>Status</th><th class="num">Total</th></tr>${rows(qs,q=>`<tr><td>${esc(q.quotation_number)}</td><td>${esc(q.customer_name)}</td><td>${esc(new Date(q.quotation_date).toLocaleDateString('en-IN'))}</td><td>${esc(q.status)}</td><td class="num">${money(q.grand_total)}</td></tr>`)}</table>
+ <h2>Payments (${ps.length})</h2><table><tr><th>Quotation</th><th>Date</th><th>Mode</th><th>Note</th><th class="num">Amount</th></tr>${rows(ps,p=>`<tr><td>${esc(p.quotationId)}</td><td>${esc(new Date(p.date).toLocaleDateString('en-IN'))}</td><td>${esc(p.mode)}</td><td>${esc(p.note)}</td><td class="num">${money(p.amount)}</td></tr>`)}</table>
+ <h2>Expenses (${es.length})</h2><table><tr><th>Category</th><th>Description</th><th>Date</th><th></th><th class="num">Amount</th></tr>${rows(es,e=>`<tr><td>${esc(e.category)}</td><td>${esc(e.description)}</td><td>${esc(new Date(e.date).toLocaleDateString('en-IN'))}</td><td></td><td class="num">${money(e.amount)}</td></tr>`)}</table>
+ <h2>Service Bills (${ss.length})</h2><table><tr><th>Bill</th><th>Customer</th><th>Date</th><th>Category</th><th class="num">Total</th></tr>${rows(ss,s=>`<tr><td>${esc(s.billNumber)}</td><td>${esc(s.customerName)}</td><td>${esc(new Date(s.date).toLocaleDateString('en-IN'))}</td><td>${esc(s.category)}</td><td class="num">${money(s.grandTotal)}</td></tr>`)}</table>
+ <div class="foot">Generated by Catchy Decors Pro · www.catchydecors.in</div></body></html>`;
+ const printed=await Print.printToFileAsync({html});
+ const fileName=`Catchy-Decors-${period[0].toUpperCase()+period.slice(1)}-Report-${new Date().toISOString().slice(0,10)}.pdf`;
+ const uri=(FileSystem.cacheDirectory||FileSystem.documentDirectory||'')+fileName;
+ try{await FileSystem.deleteAsync(uri,{idempotent:true});}catch{}
+ await FileSystem.copyAsync({from:printed.uri,to:uri});
+ if(await Sharing.isAvailableAsync()) await Sharing.shareAsync(uri,{mimeType:'application/pdf',dialogTitle:`Catchy Decors ${period} report`});
+ return uri;
+}
