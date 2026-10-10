@@ -135,8 +135,9 @@ export function buildQuotationHtml(
   const fabricCell = (it: { fabric_type?: string; fabric_area?: number }) =>
     `${esc(tOpt(it.fabric_type))}${it.fabric_area ? ` · ${it.fabric_area} sq.ft` : ''}`;
   const productStartCols = (template.showSerialColumn ? 1 : 0) + (template.showAreaColumn ? 1 : 0);
-  const chargeColSpan = productStartCols + 1;
-  const discountColSpan = productStartCols + (template.showTypeColumn ? 1 : 0);
+  // Other Charges is an independent four-column table. Keeping its colspan
+  // tied to product-column toggles made the header/body widths drift.
+  const chargeDescriptionColSpan = 1;
 
   /* ---------- product table, honouring the column toggles ---------- */
   const head: string[] = [];
@@ -193,7 +194,7 @@ export function buildQuotationHtml(
   const chargeRows = charges
     .map(
       (c) => `<tr>
-      <td colspan="${chargeColSpan}" style="text-align:left">${esc(c.description)}</td>
+      <td style="text-align:left">${esc(c.description)}</td>
       <td>${c.quantity}</td>
       <td>${money(c.price)}</td>
       <td>${money(c.total)}</td>
@@ -202,7 +203,7 @@ export function buildQuotationHtml(
     .join('');
 
   const discountRow = discounts.length
-    ? `<tr class="discount"><td colspan="${discountColSpan}" style="text-align:left">${esc(sOpt(q.discount_label, 'Discount'))}</td><td>1</td><td>-${money(
+    ? `<tr class="discount"><td style="text-align:left">${esc(sOpt(q.discount_label, 'Discount'))}</td><td>1</td><td>-${money(
         q.discount
       )}</td><td>-${money(q.discount)}</td></tr>`
     : '';
@@ -379,7 +380,7 @@ export function buildQuotationHtml(
     chargeRows || discountRow
       ? `<div class="sect">OTHER CHARGES</div>
   <table>
-    <tr><th colspan="2">Description</th><th>Quantity</th><th>Price</th><th>Total</th></tr>
+    <tr><th style="width:55%;text-align:left">Description</th><th style="width:12%">Quantity</th><th style="width:15%">Price</th><th style="width:18%">Total</th></tr>
     ${chargeRows}${discountRow}
   </table>`
       : ''
