@@ -18,7 +18,7 @@ import { gstInputFromQuotation } from '../../src/services/excelService';
 import { formatINR, formatDate } from '../../src/utils/currency';
 import { getProduct } from '../../src/constants/products';
 import type { Quotation, WorkStatus } from '../../src/types/quotation';
-import { addPayment, paymentSummary, type PaymentEntry, type PaymentMode } from '../../src/services/paymentService';
+import { addPayment, paymentSummary, buildAdvancePaymentMessage, type PaymentEntry, type PaymentMode, type PaymentType } from '../../src/services/paymentService';
 
 export default function QuotationDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -31,6 +31,7 @@ export default function QuotationDetail() {
   const [balance, setBalance] = useState(0);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentMode, setPaymentMode] = useState<PaymentMode>('UPI');
+  const [paymentType, setPaymentType] = useState<PaymentType>('regular');
 
   useFocusEffect(
     useCallback(() => {
@@ -137,6 +138,8 @@ export default function QuotationDetail() {
       <View style={styles.card}>
         <Text style={styles.sec}>Payment & Balance</Text>
         <View style={styles.paySummary}><View><Text style={styles.payLabel}>Paid</Text><Text style={styles.paid}>{formatINR(paid)}</Text></View><View><Text style={styles.payLabel}>Balance</Text><Text style={styles.balance}>{formatINR(balance)}</Text></View></View>
+        <Text style={styles.payLabel}>Payment Type</Text>
+        <View style={styles.modeRow}>{(['advance','regular'] as PaymentType[]).map(t=><TouchableOpacity key={t} onPress={()=>setPaymentType(t)} style={[styles.mode,paymentType===t&&styles.modeOn]}><Text style={[styles.modeText,paymentType===t&&styles.modeTextOn]}>{t==='advance'?'Advance Payment':'Regular Payment'}</Text></TouchableOpacity>)}</View>
         <TextInput style={styles.payInput} value={paymentAmount} onChangeText={setPaymentAmount} keyboardType="decimal-pad" placeholder="Enter payment amount" />
         <View style={styles.modeRow}>{(['Cash','UPI','Bank'] as PaymentMode[]).map(m=><TouchableOpacity key={m} onPress={()=>setPaymentMode(m)} style={[styles.mode, paymentMode===m&&styles.modeOn]}><Text style={[styles.modeText,paymentMode===m&&styles.modeTextOn]}>{m}</Text></TouchableOpacity>)}</View>
         <Button title="Add Payment" icon="cash" variant="accent" onPress={async()=>{
@@ -146,7 +149,7 @@ export default function QuotationDetail() {
           const amount=Number(normalizedAmount)||0;
           if(amount<=0) return Alert.alert('Payment','Enter a valid amount.');
           if(amount>balance + 0.001) return Alert.alert('Payment',`Balance amount is ${formatINR(balance)}`);
-          await addPayment({quotationId:q.id,amount,mode:paymentMode});
+          await addPayment({quotationId:q.id,amount,mode:paymentMode,type:paymentType});
           const p=await paymentSummary(q.id,q.grand_total);
           setPayments(p.rows); setPaid(p.paid); setBalance(p.balance); setPaymentAmount('');
           // Keep work status consistent with the actual payment balance.
@@ -159,9 +162,18 @@ export default function QuotationDetail() {
             await updateWorkStatus(q.id,'payment_pending');
             setQ(await getQuotation(q.id));
           }
-          toast(p.balance <= 0 ? 'Payment saved · Fully paid' : 'Payment saved');
+          if (paymentType === 'advance') {
+            const rawPhone=String(q.customer_phone??'').replace(/\D/g,'');
+            const mobile=rawPhone.length===10?`91${rawPhone}`:rawPhone;
+            if (mobile) {
+              const msg=buildAdvancePaymentMessage({customerName:q.customer_name,quotationNumber:q.quotation_number,total:q.grand_total,advanceAmount:amount,balance:p.balance});
+              const waUrl=`https://wa.me/${mobile}?text=${encodeURIComponent(msg)}`;
+              if(await Linking.canOpenURL(waUrl)) await Linking.openURL(waUrl);
+            }
+          }
+          toast(p.balance <= 0 ? 'Payment saved · Fully paid' : paymentType === 'advance' ? 'Advance payment saved' : 'Payment saved');
         }}/>
-        {payments.slice(0,5).map(p=><View key={p.id} style={styles.paymentRow}><Text style={styles.itemText}>{new Date(p.date).toLocaleDateString('en-IN')} · {p.mode}</Text><Text style={styles.itemTotal}>{formatINR(p.amount)}</Text></View>)}
+        {payments.slice(0,5).map(p=><View key={p.id} style={styles.paymentRow}><Text style={styles.itemText}>{new Date(p.date).toLocaleDateString('en-IN')} · {p.type === 'advance' ? 'Advance · ' : ''}{p.mode}</Text><Text style={styles.itemTotal}>{formatINR(p.amount)}</Text></View>)}
       </View>
 
       <View style={styles.card}>
