@@ -72,7 +72,7 @@ Catchy Decors, Karur
 📍 18, 4th Cross, Kamarajapuram, Karur - 639002`;
 }
 
-export function buildAdvancePaymentMessage(input:{customerName?:string;quotationNumber?:string;total:number;advanceAmount:number;balance:number;}):string{
+export function buildAdvancePaymentMessage(input:{customerName?:string;quotationNumber?:string;total:number;advanceAmount:number;balance:number;paymentMode:PaymentMode;}):string{
  const money=(n:number)=>`₹${Math.max(0,n).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
  return `Advance Payment Received - Catchy Decors
 
