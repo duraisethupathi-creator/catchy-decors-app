@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -52,6 +52,10 @@ export default function Measurements() {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [selectedProducts, setSelectedProducts] = useState<ProductKey[]>([]);
   const [rows, setRows] = useState<Row[]>([]);
+  const [activeId, setActiveId] = useState<string>('');
+  const [draftSaved, setDraftSaved] = useState(true);
+  const hydrated = useRef(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -82,21 +86,26 @@ export default function Measurements() {
             }))
           );
           setSelectedProducts(Array.from(new Set(draft.map((d) => d.product_type))));
+          setActiveId(draft[draft.length - 1]?.id ?? '');
         }
+        hydrated.current = true;
       })();
     }, [params.customerId])
   );
 
   function addRow(product: ProductKey) {
     const def = getProduct(product);
+    const id = uid();
     setRows((r) => [
       ...r,
-      { id: uid(), product, area: '', type: def.typeOptions[0] ?? '', width: '', height: '', price: '', fabricType: '', fabricArea: '', wallBonusRoll: false, part: '', measurementUnit: 'inch' },
+      { id, product, area: '', type: def.typeOptions[0] ?? '', width: '', height: '', price: '', fabricType: '', fabricArea: '', wallBonusRoll: false, part: '', measurementUnit: 'inch' },
     ]);
+    setActiveId(id);
     setSelectedProducts((p) => (p.includes(product) ? p : [...p, product]));
   }
 
   function updateRow(id: string, patch: Partial<Row>) {
+    setDraftSaved(false);
     setRows((r) => r.map((row) => (row.id === id ? { ...row, ...patch } : row)));
   }
 
@@ -173,6 +182,17 @@ export default function Measurements() {
     await saveAccessories(customerId, []);
   }
 
+  useEffect(() => {
+    if (!hydrated.current || !customerId) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    setDraftSaved(false);
+    saveTimer.current = setTimeout(async () => { await persistDraft(); setDraftSaved(true); }, 350);
+    return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
+  }, [rows, customerId]);
+
+  const activeRow = rows.find((r) => r.id === activeId) ?? null;
+  const completedRows = rows.filter((r) => r.id !== activeId);
+
   async function continueToQuotation() {
     if (rows.length === 0) {
       toast('Add at least one measurement row');
@@ -208,86 +228,25 @@ export default function Measurements() {
         })}
       </View>
 
-      {rows.map((row, idx) => {
-        const def = getProduct(row.product);
-        const qty = quantityOf(row);
-        const tot = totalOf(row);
-        const wpInfo = def.formula === 'wallpaper' ? calculateWallpaperQty(row.width, row.height, row.wallBonusRoll) : null;
-        return (
-          <Card key={row.id} style={{ marginTop: 14 }}>
-            <View style={styles.rowHead}>
-              <Text style={styles.rowTitle}>{idx + 1}. {def.name}</Text>
-              <TouchableOpacity onPress={() => removeRow(row.id)}>
-                <Ionicons name="trash-outline" size={20} color={colors.danger} />
-              </TouchableOpacity>
-            </View>
-            <Field label="Area Name" value={row.area} onChangeText={(t) => updateRow(row.id, { area: t })} placeholder="e.g. Living Room Window 1" />
-            <Text style={styles.miniLabel}>{def.typeLabel}</Text>
-            <ChipGroup options={def.typeOptions} selected={row.type} onSelect={(v) => updateRow(row.id, { type: v })} />
-            {(row.product === 'blinds' || row.product === 'mosquito_net') ? (
-              <>
-                <Text style={styles.miniLabel}>Measurement Unit</Text>
-                <ChipGroup options={['inch', 'mm']} selected={row.measurementUnit} onSelect={(v) => updateRow(row.id, { measurementUnit: v as 'inch' | 'mm' })} />
-              </>
-            ) : null}
-            {row.product === 'curtains' ? (
-              <Field label="Part" value={row.part} onChangeText={(t) => updateRow(row.id, { part: numericInput(t) })} keyboardType="numeric" placeholder="0" />
-            ) : null}
-            <View style={styles.halfRow}>
-              <View style={{ flex: 1, marginRight: 8 }}>
-                <Field
-                  label={def.formula === 'accessories' ? 'Curtain Width (in)' : def.formula === 'linear_meter' ? 'Material (mtr)' : `Width (${row.measurementUnit === 'mm' && (row.product === 'blinds' || row.product === 'mosquito_net') ? 'mm' : 'in'})`}
-                  value={row.width}
-                  onChangeText={(t) => updateRow(row.id, { width: numericInput(t) })}
-                  keyboardType="numeric"
-                  placeholder="0"
-                />
-              </View>
-              {def.usesHeight ? (
-                <View style={{ flex: 1 }}>
-                  <Field label={`Height (${row.measurementUnit === 'mm' && (row.product === 'blinds' || row.product === 'mosquito_net') ? 'mm' : 'in'})`} value={row.height} onChangeText={(t) => updateRow(row.id, { height: numericInput(t) })} keyboardType="numeric" placeholder="0" />
-                </View>
-              ) : <View style={{ flex: 1 }} />}
-            </View>
-            <View style={styles.halfRow}>
-              <View style={{ flex: 1, marginRight: 8 }}>
-                <Field label="Fabric Details" value={row.fabricType} onChangeText={(t) => updateRow(row.id, { fabricType: t })} placeholder="e.g. Cotton, Blackout" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Field label="Fabric Area (sq.ft)" value={row.fabricArea} onChangeText={(t) => updateRow(row.id, { fabricArea: numericInput(t) })} keyboardType="numeric" placeholder="0" />
-              </View>
-            </View>
-            <Field label="Price (₹)" value={row.price} onChangeText={(t) => updateRow(row.id, { price: numericInput(t) })} keyboardType="numeric" placeholder="0" />
+      {activeRow ? (() => {
+        const row=activeRow, def=getProduct(row.product), qty=quantityOf(row), tot=totalOf(row);
+        return <Card style={{marginTop:14}}>
+          <View style={styles.rowHead}><Text style={styles.rowTitle}>Add {def.name}</Text><Text style={styles.autoSave}>{draftSaved?'✓ Auto saved':'Saving…'}</Text></View>
+          <Field label="Area Name" value={row.area} onChangeText={t=>updateRow(row.id,{area:t})} placeholder="e.g. Living Room Window 1"/>
+          <Text style={styles.miniLabel}>{def.typeLabel}</Text><ChipGroup options={def.typeOptions} selected={row.type} onSelect={v=>updateRow(row.id,{type:v})}/>
+          {(row.product==='blinds'||row.product==='mosquito_net')?<><Text style={styles.miniLabel}>Measurement Unit</Text><ChipGroup options={['inch','mm']} selected={row.measurementUnit} onSelect={v=>updateRow(row.id,{measurementUnit:v as 'inch'|'mm'})}/></>:null}
+          {row.product==='curtains'?<Field label="Part" value={row.part} onChangeText={t=>updateRow(row.id,{part:numericInput(t)})} keyboardType="numeric" placeholder="0"/>:null}
+          <View style={styles.halfRow}><View style={{flex:1,marginRight:8}}><Field label={def.formula==='accessories'?'Curtain Width (in)':def.formula==='linear_meter'?'Material (mtr)':'Width (in)'} value={row.width} onChangeText={t=>updateRow(row.id,{width:numericInput(t)})} keyboardType="numeric" placeholder="0"/></View>{def.usesHeight?<View style={{flex:1}}><Field label="Height" value={row.height} onChangeText={t=>updateRow(row.id,{height:numericInput(t)})} keyboardType="numeric" placeholder="0"/></View>:<View style={{flex:1}}/>}</View>
+          <View style={styles.halfRow}><View style={{flex:1,marginRight:8}}><Field label="Fabric Details" value={row.fabricType} onChangeText={t=>updateRow(row.id,{fabricType:t})} placeholder="e.g. Cotton, Blackout"/></View><View style={{flex:1}}><Field label="Fabric Area (sq.ft)" value={row.fabricArea} onChangeText={t=>updateRow(row.id,{fabricArea:numericInput(t)})} keyboardType="numeric" placeholder="0"/></View></View>
+          <Field label="Price (₹)" value={row.price} onChangeText={t=>updateRow(row.id,{price:numericInput(t)})} keyboardType="numeric" placeholder="0"/>
+          <View style={styles.preview}><Text style={styles.previewLabel}>LIVE CALCULATION</Text><View style={{flexDirection:'row',justifyContent:'space-between',marginTop:6}}><Text style={styles.previewQty}>Quantity ({def.qtyUnit}): <Text style={styles.previewVal}>{qty}</Text></Text><Text style={styles.previewQty}>Total: <Text style={styles.previewVal}>{formatINR(tot)}</Text></Text></View></View>
+          <View style={{flexDirection:'row',gap:8,marginTop:12}}><Button title="Delete" icon="trash-outline" variant="outline" style={{flex:1}} onPress={()=>removeRow(row.id)}/><Button title="Add to List" icon="add" variant="accent" style={{flex:2}} onPress={()=>{setActiveId('');toast('Item added · Auto saved');}}/></View>
+        </Card>;
+      })():null}
 
-            {def.formula === 'wallpaper' && wpInfo ? (
-              <View style={styles.wpBox}>
-                <Text style={styles.wpFormula}>Area = (W × H) / 144 = <Text style={{ fontWeight: '900', color: colors.navy }}>{wpInfo.qty.toFixed(2)}</Text> sq.ft</Text>
-              </View>
-            ) : null}
+      {completedRows.length>0?<Card style={{marginTop:14}}><View style={styles.rowHead}><Text style={styles.rowTitle}>Added Items ({completedRows.length})</Text><Text style={styles.autoSave}>✓ Auto saved</Text></View>{completedRows.map((row,i)=>{const def=getProduct(row.product);return <TouchableOpacity key={row.id} style={styles.savedRow} onPress={()=>setActiveId(row.id)}><View style={{flex:1}}><Text style={styles.savedTitle}>{i+1}. {row.area||'Untitled'} · {def.name}</Text><Text style={styles.savedMeta}>{row.type||'—'} · {quantityOf(row)} {def.qtyUnit}</Text></View><Text style={styles.savedTotal}>{formatINR(totalOf(row),false)}</Text><Ionicons name="pencil" size={18} color={colors.navy}/><TouchableOpacity onPress={()=>removeRow(row.id)}><Ionicons name="trash-outline" size={18} color={colors.danger}/></TouchableOpacity></TouchableOpacity>})}</Card>:null}
 
-            <View style={styles.preview}>
-              <Text style={styles.previewLabel}>Live Calculation</Text>
-              <Text style={styles.previewFormula}>
-                {def.formula === 'curtain'
-                  ? `Qty ((W/20) × (H+10))/40 — unit: mtr`
-                  : def.formula === 'square_feet'
-                  ? `Qty = ${row.measurementUnit === 'mm' && (row.product === 'blinds' || row.product === 'mosquito_net') ? '(W × H)/305/305' : '(W × H)/144'}`
-                  : def.formula === 'wallpaper'
-                  ? `Qty = (W × H)/144 — unit: sq.ft`
-                  : def.formula === 'linear_meter'
-                  ? `Total = mtr × Price — unit: mtr`
-                  : `Qty = W/12 — unit: R.ft`}
-              </Text>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
-                <Text style={styles.previewQty}>Quantity ({def.qtyUnit}): <Text style={styles.previewVal}>{qty}</Text></Text>
-                <Text style={styles.previewQty}>Total: <Text style={styles.previewVal}>{formatINR(tot)}</Text></Text>
-              </View>
-            </View>
-          </Card>
-        );
-      })}
-
-      <Button title="+ Add Another Area" icon="add" variant="outline" style={{ marginTop: 14 }} onPress={() => addRow(selectedProducts[selectedProducts.length - 1] ?? 'curtains')} />
+      <Button title="+ Add Another Item" icon="add" variant="outline" style={{ marginTop: 14 }} onPress={() => addRow(activeRow?.product ?? selectedProducts[selectedProducts.length - 1] ?? 'curtains')} />
 
       <Card style={{ marginTop: 16 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
@@ -345,4 +304,9 @@ const styles = StyleSheet.create({
   wpNote: { fontSize: 12, color: colors.textMuted, marginTop: 4, fontStyle: 'italic' },
   subtotalLabel: { fontWeight: '800', color: colors.textDark },
   subtotalValue: { fontWeight: '900', color: colors.orange, fontSize: 17 },
+  autoSave: { fontSize: 11.5, fontWeight: '800', color: '#0E9A4C' },
+  savedRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#EEF1F7' },
+  savedTitle: { fontWeight: '800', color: colors.textDark, fontSize: 13 },
+  savedMeta: { color: colors.textMuted, fontSize: 11.5, marginTop: 2 },
+  savedTotal: { fontWeight: '900', color: colors.navy, fontSize: 13 },
 });
