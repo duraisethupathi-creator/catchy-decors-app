@@ -54,6 +54,7 @@ Hi ${name}, உங்கள் payment முழுமையாக பெற்�
 Total Paid: ${money(input.paid)}
 மீண்டும் உங்கள் வீட்டை அழகாக்க எங்களை நினைவில் கொள்ளுங்கள். ❤️
 ⭐ Google Review: ${GOOGLE_REVIEW_URL}
+🌐 Website: https://www.catchydecors.in
 Catchy Decors, Karur
 📞 9159194440
 📍 18, 4th Cross, Kamarajapuram, Karur - 639002`;
