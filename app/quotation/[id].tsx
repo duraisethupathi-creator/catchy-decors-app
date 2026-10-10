@@ -129,8 +129,7 @@ export default function QuotationDetail() {
         <Text style={styles.workCurrent}>{(q.work_status ?? 'quotation').replace(/_/g, ' ').toUpperCase()}</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.workRow}>
           {([
-            ['quotation','Quotation'],['confirmed','Confirmed'],['measurement','Measurement'],['material_ordered','Material Ordered'],
-            ['production','Production'],['installation','Installation'],['completed','Completed'],['payment_pending','Payment Pending'],['paid','Paid']
+            ['quotation','Quotation'],['confirmed','Confirmed'],['payment_pending','Payment Pending'],['paid','Paid']
           ] as [WorkStatus,string][]).map(([value,label])=><TouchableOpacity key={value} onPress={async()=>{await updateWorkStatus(q.id,value);setQ(await getQuotation(q.id));toast(`Work status: ${label}`);}} style={[styles.workChip,(q.work_status??'quotation')===value&&styles.workChipOn]}><Text style={[styles.workChipText,(q.work_status??'quotation')===value&&styles.workChipTextOn]}>{label}</Text></TouchableOpacity>)}
         </ScrollView>
       </View>
