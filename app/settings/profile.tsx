@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View, Image } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
 import { Button, Card, Field } from '../../src/components/common';
 import { toast, confirm } from '../../src/components/common/ui';
@@ -31,8 +32,21 @@ function ProfileSettingsContent() {
       quality: 0.9,
     });
     if (!res.canceled && res.assets?.[0]?.uri) {
-      upd({ logoUri: res.assets[0].uri });
-      toast('Logo selected — tap Save Profile to apply');
+      try {
+        // ImagePicker cache URIs can disappear after an app restart/update.
+        // Persist a private copy so the selected logo remains available to PDF generation.
+        const source = res.assets[0].uri;
+        const ext = (source.split('?')[0].split('.').pop() || 'png').toLowerCase();
+        const safeExt = ext === 'jpg' || ext === 'jpeg' ? 'jpg' : 'png';
+        const target = `${FileSystem.documentDirectory}catchy-decors-business-logo.${safeExt}`;
+        const existing = await FileSystem.getInfoAsync(target);
+        if (existing.exists) await FileSystem.deleteAsync(target, { idempotent: true });
+        await FileSystem.copyAsync({ from: source, to: target });
+        upd({ logoUri: target });
+        toast('Logo selected — tap Save Profile to apply');
+      } catch {
+        toast('Could not save logo. Please choose the image again.');
+      }
     }
   }
 
@@ -71,8 +85,7 @@ function ProfileSettingsContent() {
           </View>
         </View>
         <Text style={styles.hint}>
-          Pick a square image (PNG/JPG). It is stored on the device and used on the in-app header; the branded document
-          layout keeps the navy/CD header mark for print clarity.
+          Pick a square image (PNG/JPG). It is saved inside the app and printed on quotations, bills and GST invoices.
         </Text>
       </Card>
 
