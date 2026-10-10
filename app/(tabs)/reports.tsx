@@ -18,6 +18,7 @@ import {
 import { countCustomers } from '../../src/services/customerService';
 import { formatINR, formatDate } from '../../src/utils/currency';
 import type { Quotation, SalesStats } from '../../src/types/all';
+import { shareCompleteReportPdf, type ReportPeriod } from '../../src/services/reportPdfService';
 
 type RangeKey = 7 | 14 | 30 | 90;
 
@@ -48,6 +49,8 @@ export default function Reports() {
   const [view, setView] = useState<'overview' | 'list'>('overview');
   const [quotes, setQuotes] = useState<Quotation[]>([]);
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'sent' | 'approved' | 'completed'>('all');
+  const [reportPeriod, setReportPeriod] = useState<ReportPeriod>('monthly');
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   const reload = useCallback(async () => {
     const [s, c, m, d, p, q] = await Promise.all([
@@ -99,6 +102,19 @@ export default function Reports() {
   return (
     <ScrollView style={styles.root} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
       <Text style={styles.header}>Reports</Text>
+
+      <Card style={{ marginBottom: 12 }}>
+        <Text style={styles.section}>Complete PDF Report</Text>
+        <Text style={styles.subNote}>Quotation, payments, expenses and service bills in one PDF.</Text>
+        <View style={{ flexDirection: 'row', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+          {(['daily','weekly','monthly','yearly'] as ReportPeriod[]).map((p) => (
+            <TouchableOpacity key={p} onPress={() => setReportPeriod(p)} style={[styles.rangeChip, reportPeriod === p ? styles.rangeChipActive : null]}>
+              <Text style={[styles.rangeChipText, reportPeriod === p ? styles.rangeChipTextActive : null]}>{p.toUpperCase()}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <Button title={exportingPdf ? 'Generating PDF…' : 'Download / Share Complete PDF'} icon="document-text-outline" variant="accent" style={{ marginTop: 12 }} onPress={async()=>{if(exportingPdf)return;setExportingPdf(true);try{await shareCompleteReportPdf(reportPeriod);toast('Report PDF ready');}catch(e){toast('Could not generate report PDF');}finally{setExportingPdf(false);}}} />
+      </Card>
 
       {/* Editable controls: range tabs + view toggle */}
       <Card style={{ padding: 10, marginBottom: 10 }}>
