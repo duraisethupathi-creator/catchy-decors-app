@@ -130,6 +130,8 @@ export default function Measurements() {
         return calculateAccessories(row.width);
       case 'wallpaper':
         return calculateWallpaperQty(row.width, row.height, row.wallBonusRoll).qty;
+      case 'linear_meter':
+        return Math.max(0, Number(row.width) || 0);
       default:
         return 0;
     }
@@ -234,7 +236,7 @@ export default function Measurements() {
             <View style={styles.halfRow}>
               <View style={{ flex: 1, marginRight: 8 }}>
                 <Field
-                  label={def.formula === 'accessories' ? 'Curtain Width (in)' : `Width (${row.measurementUnit === 'mm' && (row.product === 'blinds' || row.product === 'mosquito_net') ? 'mm' : 'in'})`}
+                  label={def.formula === 'accessories' ? 'Curtain Width (in)' : def.formula === 'linear_meter' ? 'Material (mtr)' : `Width (${row.measurementUnit === 'mm' && (row.product === 'blinds' || row.product === 'mosquito_net') ? 'mm' : 'in'})`}
                   value={row.width}
                   onChangeText={(t) => updateRow(row.id, { width: numericInput(t) })}
                   keyboardType="numeric"
@@ -272,6 +274,8 @@ export default function Measurements() {
                   ? `Qty = ${row.measurementUnit === 'mm' && (row.product === 'blinds' || row.product === 'mosquito_net') ? '(W × H)/305/305' : '(W × H)/144'}`
                   : def.formula === 'wallpaper'
                   ? `Qty = (W × H)/144 — unit: sq.ft`
+                  : def.formula === 'linear_meter'
+                  ? `Total = mtr × Price — unit: mtr`
                   : `Qty = W/12 — unit: R.ft`}
               </Text>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
