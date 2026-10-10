@@ -100,7 +100,7 @@ export function calculateStitching(parts: unknown, price: unknown): { quantity: 
 }
 
 export function calcQuantityFor(
-  formula: 'curtain' | 'square_feet' | 'accessories' | 'wallpaper',
+  formula: 'curtain' | 'square_feet' | 'accessories' | 'wallpaper' | 'linear_meter',
   width: unknown,
   height: unknown
 ): number {
@@ -115,6 +115,9 @@ export function calcQuantityFor(
     case 'wallpaper':
       // (without bonus) — kept for legacy callers; UI uses calculateWallpaperQty.
       return calculateWallpaperQty(width, height, false).qty;
+    case 'linear_meter':
+      // Cushion material is entered directly in metres.
+      return round2(clampNonNeg(toNum(width)));
     default:
       return 0;
   }
