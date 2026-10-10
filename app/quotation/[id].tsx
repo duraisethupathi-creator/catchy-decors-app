@@ -4,6 +4,7 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Linking } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system';
 import { Button } from '../../src/components/common';
 import { EmptyState, toast, confirm } from '../../src/components/common/ui';
 import { StatusChip } from '../../src/components/common';
@@ -62,8 +63,14 @@ export default function QuotationDetail() {
             ? buildNonGstBillHtml(q!, ctx)
             : buildQuotationHtml(q!, null, ctx);
       const { uri } = await Print.printToFileAsync({ html, width: 595, height: 842 });
+      // expo-print creates a UUID temp filename. Copy it to our branded filename
+      // before sharing so WhatsApp/Files shows the real document name.
+      const namedUri = `${FileSystem.cacheDirectory}${quotationFileName(q!, kind)}`;
+      const existing = await FileSystem.getInfoAsync(namedUri);
+      if (existing.exists) await FileSystem.deleteAsync(namedUri, { idempotent: true });
+      await FileSystem.copyAsync({ from: uri, to: namedUri });
       toast(kind === 'gst' ? 'GST Tax Invoice ready' : kind === 'bill' ? 'Bill Without GST ready' : 'Quotation PDF ready');
-      return uri;
+      return namedUri;
     } catch {
       toast('PDF generation failed');
       return null;
