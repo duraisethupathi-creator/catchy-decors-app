@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -34,7 +35,7 @@ import { numericInput } from '../../src/utils/validation';
 import { round2, calculateAccessories, calculateTotal } from '../../src/utils/calculations';
 import type { Customer } from '../../src/types/customer';
 import type { Measurement, Accessory, OtherCharge } from '../../src/types/measurement';
-import type { Quotation } from '../../src/types/quotation';
+import type { MaterialReferencePhoto, Quotation } from '../../src/types/quotation';
 
 const uid = () => Math.random().toString(36).slice(2);
 
@@ -54,6 +55,7 @@ export default function NewQuotation() {
   const [qNumber, setQNumber] = useState('');
   const [charges, setCharges] = useState<ChargesBundle>(emptyChargesBundle);
   const [saving, setSaving] = useState(false);
+  const [referencePhotos, setReferencePhotos] = useState<MaterialReferencePhoto[]>([]);
   const draftReady = useRef(false);
   const draftSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -144,6 +146,19 @@ export default function NewQuotation() {
     setAccRows((r) => r.map((row) => (row.id === id ? { ...row, ...patch } : row)));
   }
 
+  async function addReferencePhoto(source: 'camera' | 'gallery') {
+    const permission = source === 'camera' ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) { Alert.alert('Permission required', source === 'camera' ? 'Camera permission is required.' : 'Photo permission is required.'); return; }
+    const result = source === 'camera'
+      ? await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: false, quality: 0.5, base64: true })
+      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: false, quality: 0.5, base64: true });
+    if (result.canceled || !result.assets[0]?.base64) return;
+    const asset=result.assets[0];
+    const firstArea=items[0]?.area_name || accRows[0]?.area || '';
+    setReferencePhotos(rows=>[...rows,{id:uid(),area_name:firstArea,label:'Material / Track',data_uri:`data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`}]);
+  }
+  function updateReference(id:string, patch:Partial<MaterialReferencePhoto>){ setReferencePhotos(rows=>rows.map(r=>r.id===id?{...r,...patch}:r)); }
+
   async function persistDrafts() {
     if (!customer) return;
     const accDraft: Accessory[] = accRows.map((r) => ({
@@ -196,6 +211,7 @@ export default function NewQuotation() {
         discount: bundle.totals.discount,
         grand_total: grandTotal,
         status,
+        reference_photos: referencePhotos,
       });
       const { commitQuotation } = await import('../../src/services/quotationService');
       await commitQuotation(q, customer.id);
@@ -250,6 +266,7 @@ export default function NewQuotation() {
       discount: bundle.totals.discount,
       grand_total: grandTotal,
       status: 'draft',
+      reference_photos: referencePhotos,
     });
     const { commitQuotation } = await import('../../src/services/quotationService');
     await commitQuotation(q, customer.id);
@@ -296,6 +313,23 @@ export default function NewQuotation() {
         })
       )}
 
+
+      <SectionTitle>
+        <Text style={{ fontSize: 16, fontWeight: '800', color: colors.text }}>Material Reference Photos (Optional)</Text>
+      </SectionTitle>
+      <Card>
+        <Text style={styles.note}>Optional. Photos are compressed automatically and printed from Page 2 onwards with Area Name.</Text>
+        <View style={{flexDirection:'row',gap:8,marginBottom:10}}>
+          <Button title="Camera" icon="camera-outline" variant="outline" style={{flex:1}} onPress={()=>addReferencePhoto('camera')} />
+          <Button title="Gallery" icon="images-outline" variant="outline" style={{flex:1}} onPress={()=>addReferencePhoto('gallery')} />
+        </View>
+        {referencePhotos.map((photo)=><View key={photo.id} style={{marginTop:10,borderTopWidth:1,borderTopColor:colors.border,paddingTop:10}}>
+          <Image source={{uri:photo.data_uri}} style={{width:'100%',height:150,borderRadius:12,resizeMode:'cover',marginBottom:8}} />
+          <Field label="Area Name" value={photo.area_name} onChangeText={t=>updateReference(photo.id,{area_name:t})} placeholder="e.g. Hall" />
+          <Field label="Reference Type" value={photo.label} onChangeText={t=>updateReference(photo.id,{label:t})} placeholder="e.g. Curtain Fabric / Track" />
+          <Button title="Remove Photo" icon="trash-outline" variant="ghost" onPress={()=>setReferencePhotos(rows=>rows.filter(r=>r.id!==photo.id))} />
+        </View>)}
+      </Card>
 
       <SectionTitle>
         <Text style={{ fontSize: 16, fontWeight: '800', color: colors.text }}>Accessories</Text>
