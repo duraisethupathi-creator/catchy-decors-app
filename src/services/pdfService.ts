@@ -261,6 +261,8 @@ export function buildQuotationHtml(
       ? `<img class="logo-img" src="${esc(resolve(ctx).logoDataUri)}" alt="Catchy Decors logo" />`
       : '<div class="logo-fallback">CD</div>';
 
+  const referencePages = documentKind === 'quotation' && (q.reference_photos?.length ?? 0) > 0 ? `<div style="page-break-before:always">${(q.reference_photos ?? []).map((photo) => `<section style="page-break-before:always;min-height:270mm;padding:18mm;text-align:center"><div style="font-size:18px;font-weight:bold;color:#101D4A">${esc(photo.area_name || 'Area')}</div><div style="font-size:12px;color:#6B7390;margin:6px 0 16px">${esc(photo.label || 'Material / Track')}</div><img src="${esc(photo.data_uri)}" style="width:100%;max-height:220mm;object-fit:contain;border:1px solid #E1E5EC;border-radius:10px"/><div style="margin-top:10px;font-size:9px;color:#6B7390">Selected Material Reference · ${esc(q.quotation_number)}</div></section>`).join('')}</div>` : '';
+
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8" /><style>
   @page { size: A4; margin: 0; }
@@ -435,7 +437,7 @@ export function buildQuotationHtml(
     ${company.gstin ? ` &bull; GSTIN ${esc(company.gstin)}` : ''}
   </div>
   <div class="sign-bottom">${signatureBlockContent}</div>
-</div></body></html>`;
+</div>${referencePages}</body></html>`;
 }
 
 export function buildStandardQuotationHtml(q: Quotation, ctx?: Partial<DocContext>): string {
