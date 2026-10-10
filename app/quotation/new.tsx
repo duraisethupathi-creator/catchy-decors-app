@@ -56,7 +56,7 @@ export default function NewQuotation() {
   const [charges, setCharges] = useState<ChargesBundle>(emptyChargesBundle);
   const [saving, setSaving] = useState(false);
   const [rateRows, setRateRows] = useState<RateItem[]>([]);
-  const [rateProduct, setRateProduct] = useState<'curtains'|'blinds'|'mosquito_net'|'wallpaper'|'headboard'|'flooring'|'accessories'>('curtains');
+  const [rateProduct, setRateProduct] = useState<'curtains'|'blinds'|'mosquito_net'|'wallpaper'|'headboard'|'cushion'|'flooring'|'accessories'>('curtains');
   const [rateType, setRateType] = useState(''); const [rateMaterial,setRateMaterial]=useState(''); const [rateValue,setRateValue]=useState('');
 
   useFocusEffect(
@@ -279,7 +279,7 @@ export default function NewQuotation() {
       <Card>
         <Text style={styles.formulaNote}>Optional reference only — quotation rates remain fully editable.</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:7,marginBottom:10}}>
-          {(['curtains','blinds','mosquito_net','wallpaper','headboard','flooring','accessories'] as const).map(p=><TouchableOpacity key={p} onPress={async()=>{setRateProduct(p);setRateRows(await getRatesForProduct(p));}} style={[styles.rateChip,rateProduct===p&&styles.rateChipOn]}><Text style={[styles.rateChipText,rateProduct===p&&styles.rateChipTextOn]}>{getProduct(p).name}</Text></TouchableOpacity>)}
+          {(['curtains','blinds','mosquito_net','wallpaper','headboard','cushion','flooring','accessories'] as const).map(p=><TouchableOpacity key={p} onPress={async()=>{setRateProduct(p);setRateRows(await getRatesForProduct(p));}} style={[styles.rateChip,rateProduct===p&&styles.rateChipOn]}><Text style={[styles.rateChipText,rateProduct===p&&styles.rateChipTextOn]}>{getProduct(p).name}</Text></TouchableOpacity>)}
         </ScrollView>
         <Field label="Type / Model" value={rateType} onChangeText={setRateType} placeholder="e.g. Zebra / Blackout" />
         <Field label="Material / Design Name" value={rateMaterial} onChangeText={setRateMaterial} placeholder="e.g. Premium Grey 01" />
