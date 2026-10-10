@@ -565,8 +565,11 @@ export default function Preview() {
               <View style={{ flex: 1, marginRight: 8 }}>
                 <Field label={`Extra ${i + 1} — Description`} value={row.description} onChangeText={(t) => updExtra(row.id, { description: t })} placeholder="e.g. Packing, Rod bending, Tax" />
               </View>
+              <View style={{ flex: 0.65, marginRight: 8 }}>
+                <Field label="Quantity" value={row.quantity} onChangeText={(t) => updExtra(row.id, { quantity: numericInput(t) })} keyboardType="numeric" />
+              </View>
               <View style={{ flex: 1 }}>
-                <Field label="Amount (₹)" value={row.amount} onChangeText={(t) => updExtra(row.id, { amount: numericInput(t) })} keyboardType="numeric" />
+                <Field label="Price (₹)" value={row.amount} onChangeText={(t) => updExtra(row.id, { amount: numericInput(t) })} keyboardType="numeric" />
               </View>
               <TouchableOpacity onPress={() => removeExtra(row.id)} style={styles.extraDel}>
                 <Ionicons name="trash-outline" size={18} color={colors.danger} />
