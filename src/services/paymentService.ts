@@ -2,7 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { queueForSync, uuid } from './db';
 
 export type PaymentMode = 'Cash' | 'UPI' | 'Bank';
-export interface PaymentEntry { id:string; quotationId:string; amount:number; mode:PaymentMode; date:string; note?:string; updated_at?:string; }
+export type PaymentType = 'advance' | 'regular';
+export interface PaymentEntry { id:string; quotationId:string; amount:number; mode:PaymentMode; type?:PaymentType; date:string; note?:string; updated_at?:string; }
 const KEY='cd_payments';
 export async function getPayments():Promise<PaymentEntry[]>{ try{return JSON.parse((await AsyncStorage.getItem(KEY))||'[]')}catch{return []} }
 export async function getPaymentsForQuotation(id:string){ return (await getPayments()).filter(p=>p.quotationId===id).sort((a,b)=>b.date.localeCompare(a.date)); }
@@ -69,4 +70,25 @@ Balance Due: ${money(input.balance)}
 Catchy Decors, Karur
 📞 9159194440
 📍 18, 4th Cross, Kamarajapuram, Karur - 639002`;
+}
+
+export function buildAdvancePaymentMessage(input:{customerName?:string;quotationNumber?:string;total:number;advanceAmount:number;balance:number;}):string{
+ const money=(n:number)=>`₹${Math.max(0,n).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+ return `Advance Payment Received - Catchy Decors
+
+Vanakkam ${input.customerName?.trim()||'Customer'},
+Your order advance payment ${money(input.advanceAmount)} has been received. Thank you.
+
+Quotation: ${input.quotationNumber||'-'}
+Total Amount: ${money(input.total)}
+Advance Paid: ${money(input.advanceAmount)}
+Balance: ${money(input.balance)}
+
+Your order process has started. We will share further work updates with you.
+
+Website: https://www.catchydecors.in
+Catchy Decors, Karur
+Phone: 9159194440
+18, 4th Cross, Kamarajapuram, Karur - 639002
+Transform Your Space Beautifully`;
 }
