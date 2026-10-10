@@ -16,6 +16,9 @@ import type { OtherCharge } from '../types/measurement';
 export interface ExtraChargeRow {
   id: string;
   description: string;
+  /** Editable quantity; legacy rows default to 1. */
+  quantity: string;
+  /** Unit price; kept as amount name for backward compatibility with saved drafts. */
   amount: string;
 }
 
@@ -82,8 +85,8 @@ function nextId(): string {
 }
 
 /** Create a blank extra-charge row. */
-export function newExtraRow(description = '', amount = ''): ExtraChargeRow {
-  return { id: nextId(), description, amount };
+export function newExtraRow(description = '', amount = '', quantity = '1'): ExtraChargeRow {
+  return { id: nextId(), description, quantity, amount };
 }
 
 /** Fix a partially-deserialised bundle (legacy records lack stitchingQty / extras). */
@@ -108,6 +111,7 @@ export function normalizeBundle(input: Partial<ChargesBundle> | null | undefined
       ? b.extras.map((r) => ({
           id: r?.id ?? nextId(),
           description: r?.description ?? '',
+          quantity: r?.quantity ?? '1',
           amount: r?.amount ?? '',
         }))
       : [],
@@ -137,10 +141,12 @@ export function buildCharges(bundleInput: ChargesBundle): { charges: OtherCharge
     .map((r) => ({
       id: r.id,
       description: String(r.description ?? '').trim(),
-      amount: round2(Number(r.amount) || 0),
+      quantity: round2(Math.max(0, Number(r.quantity) || 0)),
+      price: round2(Math.max(0, Number(r.amount) || 0)),
     }))
-    .filter((r) => r.amount !== 0 || r.description !== '');
-  const extrasTotal = round2(extras.reduce((s, r) => s + r.amount, 0));
+    .map((r) => ({ ...r, total: round2(r.quantity * r.price) }))
+    .filter((r) => r.total !== 0 || r.description !== '');
+  const extrasTotal = round2(extras.reduce((s, r) => s + r.total, 0));
 
   const charges: OtherCharge[] = [];
   if (fitting > 0) {
@@ -180,13 +186,13 @@ export function buildCharges(bundleInput: ChargesBundle): { charges: OtherCharge
     });
   }
   for (const row of extras) {
-    if (row.amount === 0) continue;
+    if (row.total === 0) continue;
     charges.push({
       id: nextId(),
       description: row.description || 'Extra Charges',
-      quantity: 1,
-      price: row.amount,
-      total: row.amount,
+      quantity: row.quantity,
+      price: row.price,
+      total: row.total,
     });
   }
   if (discount > 0) {
@@ -291,7 +297,8 @@ export function bundleFromChargesWithExtras(charges: OtherCharge[] | null | unde
     extras: rest.map((c, i) => ({
       id: `x${i}-${c.id}`,
       description: c.description,
-      amount: String(c.total),
+      quantity: String(c.quantity ?? 1),
+      amount: String(c.price ?? c.total),
     })),
   };
 }
