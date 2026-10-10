@@ -199,9 +199,10 @@ export default function QuotationDetail() {
               ...(q.accessories ?? []).map((a) => `${a.area_name ? `${a.area_name} - ` : ''}${a.track_type || 'Accessory'}`),
             ].filter(Boolean).join(', ');
             const reviewUrl = 'https://g.page/r/CZXutlVz8pW4EBM/review';
+            const latestPaymentMode = payments[0]?.mode || paymentMode;
             const msg = fullyPaid
-              ? `Payment Received ✅\n\nவணக்கம் ${q.customer_name || ''}, உங்கள் payment முழுமையாக பெற்றுக்கொண்டோம். ${companyName}-ஐ தேர்வு செய்ததற்கு நன்றி! 🙏\n\nமீண்டும் உங்கள் வீட்டை அழகாக்க எங்களை நினைவில் கொள்ளுங்கள். ❤️\n⭐ Google Review: ${reviewUrl}\n\n${companyName}${companyPhone ? `\n📞 ${companyPhone}` : ''}`
-              : `Payment Reminder\n\nவணக்கம் ${q.customer_name || ''},\n${workDetails ? `Work: ${workDetails}\n` : ''}Quotation: ${q.quotation_number}\nTotal: ${formatINR(q.grand_total)}\nPaid: ${formatINR(paid)}\nBalance Due: ${formatINR(balance)}\n\nமீதமுள்ள payment-ஐ செலுத்துமாறு அன்புடன் கேட்டுக்கொள்கிறோம்.\n\n${companyName}${companyPhone ? `\n📞 ${companyPhone}` : ''}${companyAddress ? `\n📍 ${companyAddress}` : ''}`;
+              ? `Payment Received ✅\n\nவணக்கம் ${q.customer_name || ''}, உங்கள் payment முழுமையாக பெற்றுக்கொண்டோம். ${companyName}-ஐ தேர்வு செய்ததற்கு நன்றி! 🙏\n\nPayment Mode: ${latestPaymentMode}\n\nமீண்டும் உங்கள் வீட்டை அழகாக்க எங்களை நினைவில் கொள்ளுங்கள். ❤️\n⭐ Google Review: ${reviewUrl}\n\n${companyName}${companyPhone ? `\n📞 ${companyPhone}` : ''}`
+              : `Payment Reminder\n\nவணக்கம் ${q.customer_name || ''},\n${workDetails ? `Work: ${workDetails}\n` : ''}Quotation: ${q.quotation_number}\nTotal: ${formatINR(q.grand_total)}\nPaid: ${formatINR(paid)}\nPayment Mode: ${latestPaymentMode}\nBalance Due: ${formatINR(balance)}\n\nமீதமுள்ள payment-ஐ செலுத்துமாறு அன்புடன் கேட்டுக்கொள்கிறோம்.\n\n${companyName}${companyPhone ? `\n📞 ${companyPhone}` : ''}${companyAddress ? `\n📍 ${companyAddress}` : ''}`;
             const url=`https://wa.me/${mobile}?text=${encodeURIComponent(msg)}`;
             if(await Linking.canOpenURL(url)) await Linking.openURL(url); else Alert.alert('WhatsApp','Unable to open WhatsApp.');
           }}
