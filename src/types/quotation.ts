@@ -14,6 +14,14 @@ export interface QuotationTotals {
 
 export type WorkStatus = 'quotation' | 'confirmed' | 'measurement' | 'material_ordered' | 'production' | 'installation' | 'completed' | 'payment_pending' | 'paid';
 
+export interface MaterialReferencePhoto {
+  id: string;
+  area_name: string;
+  label: string;
+  /** Compressed JPEG data URI so the image remains available offline and in PDF export. */
+  data_uri: string;
+}
+
 export interface Quotation {
   id: string;
   quotation_number: string;
@@ -33,6 +41,8 @@ export interface Quotation {
   items?: Measurement[];
   accessories?: Accessory[];
   charges?: OtherCharge[];
+  /** Optional customer-selected material / track reference photos printed after the quotation page. */
+  reference_photos?: MaterialReferencePhoto[];
   /** Site/location carried for convenience (also stored in customer record). */
   site_location?: string;
   /** Editable label printed for the summed "Other Charges" line. */
