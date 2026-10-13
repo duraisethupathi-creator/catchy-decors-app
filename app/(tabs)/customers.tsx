@@ -119,7 +119,7 @@ export default function Customers() {
       <FlatList
         data={filtered}
         keyExtractor={(c) => c.id}
-        contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 110 }}
         ListEmptyComponent={
           <EmptyState icon="👥" title="No customers found" subtitle={query ? 'Try a different search' : 'Add your first customer to get started'} />
         }
