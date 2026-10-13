@@ -285,7 +285,7 @@ export function buildQuotationHtml(
   th { background: #101D4A; color: #fff; padding: 7px 6px; font-size: 10px; text-align: center; }
   td { padding: 6px; border-bottom: 1px solid #E5E8EF; text-align: center; font-size: 10.5px; }
   tr:nth-child(even) td { background: #F8F9FC; }
-  .empty { color: #6B7390; font-style: italic; padding: 12px; }
+  .accessories-table { table-layout: fixed; }\n  .accessories-table th:nth-child(1) { width: 7%; }\n  .accessories-table th:nth-child(2) { width: 19%; }\n  .accessories-table th:nth-child(3) { width: 28%; }\n  .accessories-table td { vertical-align: middle; }\n  .empty { color: #6B7390; font-style: italic; padding: 12px; }
   .discount td { color: #1DB954; font-weight: bold; background: #F0FBF4 !important; }
   .totals { width: calc(100% - 56px); margin: 8px 28px 0; border-collapse: collapse; }
   .totals td { border: none; padding: 4px 8px; font-size: 11px; }
@@ -479,8 +479,9 @@ export function buildGstBillHtml(
 
   const accessoryRows = accessories.map((a, i) => {
     const taxable = round2(Number(a.total || 0));
-    const tax = round2((taxable * defaultRate) / 100);
-    return `<tr><td>${items.length + i + 1}</td><td class="left">${esc(a.track_type || 'Accessory')}</td><td>${esc(template.hsnCode || '-')}</td><td>${a.quantity}</td><td>${money(a.price)}</td><td>${money(taxable)}</td><td>${defaultRate}%</td><td>${money(tax)}</td><td>${money(taxable + tax)}</td></tr>`;
+    const rate = Number(a.gst_percent ?? defaultRate);
+    const tax = round2((taxable * rate) / 100);
+    return `<tr><td>${items.length + i + 1}</td><td class="left">${esc(a.track_type || 'Accessory')}</td><td>${esc(template.hsnCode || '-')}</td><td>${a.quantity}</td><td>${money(a.price)}</td><td>${money(taxable)}</td><td>${rate}%</td><td>${money(tax)}</td><td>${money(taxable + tax)}</td></tr>`;
   }).join('');
 
   const productTaxable = round2(items.reduce((s, it) => s + Number(it.total || 0), 0));
@@ -489,8 +490,9 @@ export function buildGstBillHtml(
   const otherTaxable = round2(Number(q.other_charges || 0));
   const discount = round2(Number(q.discount || 0));
   const taxable = round2(productTaxable + accessoryTaxable + otherTaxable - discount);
-  const nonProductTax = round2(((accessoryTaxable + otherTaxable - discount) * defaultRate) / 100);
-  const totalTax = round2(productTax + nonProductTax);
+  const accessoryTax = round2(accessories.reduce((s, a) => s + Number(a.total || 0) * Number(a.gst_percent ?? defaultRate) / 100, 0));
+  const otherTax = round2(((otherTaxable - discount) * defaultRate) / 100);
+  const totalTax = round2(productTax + accessoryTax + otherTax);
   const cgst = round2(totalTax / 2);
   const sgst = round2(totalTax - cgst);
   const grand = round2(taxable + totalTax);
