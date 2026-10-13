@@ -88,11 +88,22 @@ export default function QuotationDetail() {
   }
 
   async function previewPdf(kind: 'quotation' | 'bill' | 'gst'): Promise<void> {
-    const resolvedLogo = logoDataUri || await readLogoDataUri(settings.profile.logoUri);
-    const ctx = { profile: settings.profile, template: settings.template, logoDataUri: resolvedLogo };
-    const gst = gstInputFromQuotation(q!);
-    const html = kind === 'gst' ? buildGstBillHtml(q!, gst, ctx) : kind === 'bill' ? buildNonGstBillHtml(q!, ctx) : buildQuotationHtml(q!, null, ctx);
-    setDocPreview({kind,html});
+    // Generate the exact branded multi-page PDF, then hand it to Android's
+    // installed PDF-capable apps. This avoids bundling a heavy native viewer.
+    const uri = await pdf(kind);
+    if (!uri) return;
+    try {
+      const contentUri = await FileSystem.getContentUriAsync(uri);
+      await Linking.openURL(contentUri);
+    } catch {
+      // Some Android builds do not route content:// directly. Sharing still
+      // exposes installed PDF viewers / Files as a safe fallback.
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Open PDF' });
+      } else {
+        Alert.alert('PDF Viewer', 'No PDF viewer is available on this phone.');
+      }
+    }
   }
 
   async function sharePdf(kind: 'quotation' | 'bill' | 'gst'): Promise<void> {
@@ -107,12 +118,6 @@ export default function QuotationDetail() {
 
   return (
     <>
-    <Modal visible={!!docPreview} animationType="slide" onRequestClose={()=>setDocPreview(null)}>
-      <View style={{flex:1,backgroundColor:'#fff'}}>
-        <View style={{padding:14,flexDirection:'row',gap:10,alignItems:'center'}}><Button title="Back" variant="outline" onPress={()=>setDocPreview(null)}/><Text style={{fontWeight:'900',fontSize:17,flex:1}}>Document Preview</Text>{docPreview?<Button title="Share PDF" onPress={()=>sharePdf(docPreview.kind)}/>:null}</View>
-        <ScrollView contentContainerStyle={{padding:16}}><Text selectable style={{fontSize:12,color:'#333'}}>Preview is ready. Tap Share PDF to open the exact multi-page PDF document. Use Back to return to this quotation.</Text></ScrollView>
-      </View>
-    </Modal>
     <ScrollView style={styles.root} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <Text style={styles.title}>{q.quotation_number}</Text>
