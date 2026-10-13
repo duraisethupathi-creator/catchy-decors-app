@@ -13,7 +13,7 @@ export async function addPayment(input:Omit<PaymentEntry,'id'|'date'>):Promise<P
 
 export async function hasAdvancePayment(quotationId:string):Promise<boolean>{ return (await getPaymentsForQuotation(quotationId)).some(p=>p.type==='advance'); }
 export async function updatePayment(id:string, amount:number, mode:PaymentMode):Promise<PaymentEntry|null>{ const rows=await getPayments(); const i=rows.findIndex(p=>p.id===id); if(i<0)return null; rows[i]={...rows[i],amount,mode,updated_at:new Date().toISOString()}; await AsyncStorage.setItem(KEY,JSON.stringify(rows)); await AsyncStorage.setItem('cd_payments_'+id,JSON.stringify(rows[i])); await queueForSync('payments',id); return rows[i]; }
-export async function deletePayment(id:string):Promise<void>{ const rows=await getPayments(); await AsyncStorage.setItem(KEY,JSON.stringify(rows.filter(p=>p.id!==id))); await AsyncStorage.removeItem('cd_payments_'+id); }
+export async function deletePayment(id:string):Promise<void>{ const rows=await getPayments(); await AsyncStorage.setItem(KEY,JSON.stringify(rows.filter(p=>p.id!==id))); await AsyncStorage.removeItem('cd_payments_'+id); await queueForSync('payments',id); }
 
 export async function paymentSummary(quotationId:string,total:number){ const rows=await getPaymentsForQuotation(quotationId); const paid=rows.reduce((s,p)=>s+p.amount,0); return {rows,paid,balance:Math.max(0,total-paid)}; }
 
@@ -97,3 +97,8 @@ Phone: 9159194440
 18, 4th Cross, Kamarajapuram, Karur - 639002
 Transform Your Space Beautifully`;
 }
+
+export interface PaymentAuditEntry { id:string; paymentId:string; quotationId:string; action:'edit'|'delete'; oldAmount:number; newAmount?:number; oldMode:PaymentMode; newMode?:PaymentMode; admin:string; date:string; }
+const AUDIT_KEY='cd_payment_audit';
+export async function addPaymentAudit(entry:Omit<PaymentAuditEntry,'id'|'date'>):Promise<void>{ const raw=await AsyncStorage.getItem(AUDIT_KEY); const rows:PaymentAuditEntry[]=raw?JSON.parse(raw):[]; rows.unshift({...entry,id:uuid(),date:new Date().toISOString()}); await AsyncStorage.setItem(AUDIT_KEY,JSON.stringify(rows)); }
+export async function getPaymentAudit(quotationId:string):Promise<PaymentAuditEntry[]>{ const raw=await AsyncStorage.getItem(AUDIT_KEY); const rows:PaymentAuditEntry[]=raw?JSON.parse(raw):[]; return rows.filter(x=>x.quotationId===quotationId); }
