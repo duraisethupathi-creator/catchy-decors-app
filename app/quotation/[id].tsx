@@ -32,6 +32,7 @@ export default function QuotationDetail() {
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentMode, setPaymentMode] = useState<PaymentMode>('UPI');
   const [paymentType, setPaymentType] = useState<PaymentType>('regular');
+  const advanceAlreadyPaid = payments.some(p => p.type === 'advance');
 
   useFocusEffect(
     useCallback(() => {
@@ -138,7 +139,7 @@ export default function QuotationDetail() {
         <Text style={styles.sec}>Payment & Balance</Text>
         <View style={styles.paySummary}><View><Text style={styles.payLabel}>Paid</Text><Text style={styles.paid}>{formatINR(paid)}</Text></View><View><Text style={styles.payLabel}>Balance</Text><Text style={styles.balance}>{formatINR(balance)}</Text></View></View>
         <Text style={styles.payLabel}>Payment Type</Text>
-        <View style={styles.modeRow}>{(['advance','regular'] as PaymentType[]).map(t=><TouchableOpacity key={t} onPress={()=>setPaymentType(t)} style={[styles.mode,paymentType===t&&styles.modeOn]}><Text style={[styles.modeText,paymentType===t&&styles.modeTextOn]}>{t==='advance'?'Advance Payment':'Regular Payment'}</Text></TouchableOpacity>)}</View>
+        <View style={styles.modeRow}>{(['advance','regular'] as PaymentType[]).map(t=><TouchableOpacity key={t} onPress={()=>{ if(t==='advance' && advanceAlreadyPaid) return; setPaymentType(t); }} style={[styles.mode,paymentType===t&&styles.modeOn,t==='advance'&&advanceAlreadyPaid?{opacity:0.4}:null]}><Text style={[styles.modeText,paymentType===t&&styles.modeTextOn]}>{t==='advance'?'Advance Payment':'Regular Payment'}</Text></TouchableOpacity>)}</View>
         <TextInput style={styles.payInput} value={paymentAmount} onChangeText={setPaymentAmount} keyboardType="decimal-pad" placeholder="Enter payment amount" />
         <View style={styles.modeRow}>{(['Cash','UPI','Bank'] as PaymentMode[]).map(m=><TouchableOpacity key={m} onPress={()=>setPaymentMode(m)} style={[styles.mode, paymentMode===m&&styles.modeOn]}><Text style={[styles.modeText,paymentMode===m&&styles.modeTextOn]}>{m}</Text></TouchableOpacity>)}</View>
         <Button title="Add Payment" icon="cash" variant="accent" onPress={async()=>{
@@ -146,11 +147,13 @@ export default function QuotationDetail() {
           // Indian grouping (30,000.70). Number("30,000.70") is NaN.
           const normalizedAmount = paymentAmount.replace(/,/g, '').trim();
           const amount=Number(normalizedAmount)||0;
+          if(paymentType==='advance' && advanceAlreadyPaid) return Alert.alert('Advance Payment','Advance payment can be added only once. Please use Regular Payment.');
           if(amount<=0) return Alert.alert('Payment','Enter a valid amount.');
           if(amount>balance + 0.001) return Alert.alert('Payment',`Balance amount is ${formatINR(balance)}`);
           await addPayment({quotationId:q.id,amount,mode:paymentMode,type:paymentType});
           const p=await paymentSummary(q.id,q.grand_total);
           setPayments(p.rows); setPaid(p.paid); setBalance(p.balance); setPaymentAmount('');
+          if (paymentType === 'advance') setPaymentType('regular');
           // Keep work status consistent with the actual payment balance.
           // Full payment automatically closes the job as Paid; a partial payment
           // moves a completed job to Payment Pending.
