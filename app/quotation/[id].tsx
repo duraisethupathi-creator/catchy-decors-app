@@ -18,7 +18,9 @@ import { gstInputFromQuotation } from '../../src/services/excelService';
 import { formatINR, formatDate } from '../../src/utils/currency';
 import { getProduct } from '../../src/constants/products';
 import type { Quotation, WorkStatus } from '../../src/types/quotation';
-import { addPayment, paymentSummary, buildAdvancePaymentMessage, type PaymentEntry, type PaymentMode, type PaymentType } from '../../src/services/paymentService';
+import { addPayment, updatePayment, deletePayment, addPaymentAudit, paymentSummary, buildAdvancePaymentMessage, type PaymentEntry, type PaymentMode, type PaymentType } from '../../src/services/paymentService';
+import { adminBiometricApproval } from '../../src/services/biometricService';
+import { getSession } from '../../src/services/authService';
 
 export default function QuotationDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -32,6 +34,9 @@ export default function QuotationDetail() {
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentMode, setPaymentMode] = useState<PaymentMode>('UPI');
   const [paymentType, setPaymentType] = useState<PaymentType>('regular');
+  const [editPayment, setEditPayment] = useState<PaymentEntry | null>(null);
+  const [editAmount, setEditAmount] = useState('');
+  const [editMode, setEditMode] = useState<PaymentMode>('UPI');
   const [docPreview, setDocPreview] = useState<{kind:'quotation'|'bill'|'gst';html:string}|null>(null);
   const advanceAlreadyPaid = payments.some(p => p.type === 'advance');
 
@@ -191,7 +196,8 @@ export default function QuotationDetail() {
           }
           toast(p.balance <= 0 ? 'Payment saved · Fully paid' : paymentType === 'advance' ? 'Advance payment saved' : 'Payment saved');
         }}/>
-        {payments.slice(0,5).map(p=><View key={p.id} style={styles.paymentRow}><Text style={styles.itemText}>{new Date(p.date).toLocaleDateString('en-IN')} · {p.type === 'advance' ? 'Advance · ' : ''}{p.mode}</Text><Text style={styles.itemTotal}>{formatINR(p.amount)}</Text></View>)}
+        {payments.slice(0,5).map(p=><TouchableOpacity key={p.id} style={styles.paymentRow} onPress={()=>{setEditPayment(p);setEditAmount(String(p.amount));setEditMode(p.mode);}}><Text style={styles.itemText}>{new Date(p.date).toLocaleDateString('en-IN')} · {p.type === 'advance' ? 'Advance · ' : ''}{p.mode}\n<Text style={{fontSize:11,color:colors.textMuted}}>Tap to Edit / Delete · Admin verification required</Text></Text><Text style={styles.itemTotal}>{formatINR(p.amount)}</Text></TouchableOpacity>)}
+        {editPayment ? <View style={{marginTop:12,padding:12,borderWidth:1,borderColor:'#D9DEEA',borderRadius:12}}><Text style={styles.sec}>Edit Payment</Text><TextInput style={styles.payInput} value={editAmount} onChangeText={setEditAmount} keyboardType="decimal-pad" placeholder="Payment amount"/><View style={styles.modeRow}>{(['Cash','UPI','Bank'] as PaymentMode[]).map(m=><TouchableOpacity key={m} onPress={()=>setEditMode(m)} style={[styles.mode,editMode===m&&styles.modeOn]}><Text style={[styles.modeText,editMode===m&&styles.modeTextOn]}>{m}</Text></TouchableOpacity>)}</View><View style={{gap:8}}><Button title="Verify Admin & Save Edit" icon="finger-print" variant="accent" onPress={async()=>{const amount=Number(editAmount.replace(/,/g,'').trim())||0;if(amount<=0)return Alert.alert('Payment','Enter a valid amount.');const auth=await adminBiometricApproval('Edit payment');if(!auth.ok)return Alert.alert('Admin Verification',auth.error||'Verification failed');const session=await getSession();const old=editPayment;await updatePayment(old.id,amount,editMode);await addPaymentAudit({paymentId:old.id,quotationId:q.id,action:'edit',oldAmount:old.amount,newAmount:amount,oldMode:old.mode,newMode:editMode,admin:session?.name||'Admin'});const s=await paymentSummary(q.id,q.grand_total);setPayments(s.rows);setPaid(s.paid);setBalance(s.balance);setEditPayment(null);if(s.balance<=0)await updateWorkStatus(q.id,'paid');else if(q.work_status==='paid')await updateWorkStatus(q.id,'payment_pending');setQ(await getQuotation(q.id));toast('Payment updated after Admin verification');}}/><Button title="Verify Admin & Delete Payment" icon="trash-outline" variant="outline" onPress={async()=>{const auth=await adminBiometricApproval('Delete payment');if(!auth.ok)return Alert.alert('Admin Verification',auth.error||'Verification failed');const session=await getSession();const old=editPayment;await deletePayment(old.id);await addPaymentAudit({paymentId:old.id,quotationId:q.id,action:'delete',oldAmount:old.amount,oldMode:old.mode,admin:session?.name||'Admin'});const s=await paymentSummary(q.id,q.grand_total);setPayments(s.rows);setPaid(s.paid);setBalance(s.balance);setEditPayment(null);if(s.balance>0&&q.work_status==='paid')await updateWorkStatus(q.id,'payment_pending');setQ(await getQuotation(q.id));toast('Payment deleted after Admin verification');}}/><Button title="Cancel" variant="outline" onPress={()=>setEditPayment(null)}/></View></View>:null}
       </View>
 
       <View style={styles.card}>
