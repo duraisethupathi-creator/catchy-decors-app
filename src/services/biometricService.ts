@@ -54,3 +54,18 @@ export async function biometricLogin(): Promise<{ user?: AppUser; error?: string
     return { error: 'Saved biometric account is invalid' };
   }
 }
+
+/** Admin-only approval for sensitive actions such as payment edit/delete. */
+export async function adminBiometricApproval(action: string): Promise<{ok:boolean;error?:string}> {
+  const { getSession } = await import('./authService');
+  const session = await getSession();
+  if (!session || session.role !== 'admin') return { ok:false, error:'Admin login is required for this action' };
+  if (!(await biometricAvailable())) return { ok:false, error:'Fingerprint / biometric is not available. Set up fingerprint or device screen lock first.' };
+  const auth = await LocalAuthentication.authenticateAsync({
+    promptMessage: `Admin approval: ${action}`,
+    cancelLabel: 'Cancel',
+    fallbackLabel: 'Use device PIN',
+    disableDeviceFallback: false,
+  });
+  return auth.success ? {ok:true} : {ok:false,error:'Admin verification failed or was cancelled'};
+}
