@@ -261,7 +261,21 @@ export function buildQuotationHtml(
       ? `<img class="logo-img" src="${esc(resolve(ctx).logoDataUri)}" alt="Catchy Decors logo" />`
       : '<div class="logo-fallback">CD</div>';
 
-  const referencePages = documentKind === 'quotation' && (q.reference_photos?.length ?? 0) > 0 ? `<div style="page-break-before:always">${(q.reference_photos ?? []).map((photo) => `<section style="page-break-before:always;min-height:270mm;padding:18mm;text-align:center"><div style="font-size:18px;font-weight:bold;color:#101D4A">${esc(photo.area_name || 'Area')}</div><div style="font-size:12px;color:#6B7390;margin:6px 0 16px">${esc(photo.label || 'Material / Track')}</div><img src="${esc(photo.data_uri)}" style="width:100%;max-height:220mm;object-fit:contain;border:1px solid #E1E5EC;border-radius:10px"/><div style="margin-top:10px;font-size:9px;color:#6B7390">Selected Material Reference · ${esc(q.quotation_number)}</div></section>`).join('')}</div>` : '';
+  const referencePhotos = q.reference_photos ?? [];
+  const referenceGroups: typeof referencePhotos[] = [];
+  for (let i = 0; i < referencePhotos.length; i += 4) referenceGroups.push(referencePhotos.slice(i, i + 4));
+  const referencePages = documentKind === 'quotation' && referenceGroups.length > 0
+    ? referenceGroups.map((group, pageIndex) => `<section style="page-break-before:always;height:297mm;padding:12mm 14mm 10mm;overflow:hidden">
+      <div style="font-size:17px;font-weight:bold;color:#101D4A;margin-bottom:7mm">Material References <span style="font-size:10px;color:#6B7390">· ${esc(q.quotation_number)} · Page ${pageIndex + 1}</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:7mm;height:252mm">
+        ${group.map((photo) => `<div style="border:1px solid #E1E5EC;border-radius:10px;padding:4mm;display:flex;flex-direction:column;min-height:0;overflow:hidden">
+          <div style="font-size:12px;font-weight:bold;color:#101D4A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(photo.area_name || 'Area')}</div>
+          <div style="font-size:9px;color:#6B7390;margin:2px 0 3mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(photo.label || 'Material / Track')}</div>
+          <img src="${esc(photo.data_uri)}" style="width:100%;height:100%;min-height:0;object-fit:contain;border-radius:7px;background:#F8F9FC"/>
+        </div>`).join('')}
+      </div>
+    </section>`).join('')
+    : '';
 
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8" /><style>
