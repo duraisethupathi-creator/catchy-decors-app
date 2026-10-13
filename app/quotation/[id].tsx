@@ -4,6 +4,7 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Linking } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import * as IntentLauncher from 'expo-intent-launcher';
 import * as FileSystem from 'expo-file-system';
 import { Button } from '../../src/components/common';
 import { EmptyState, toast, confirm } from '../../src/components/common/ui';
@@ -94,7 +95,11 @@ export default function QuotationDetail() {
     if (!uri) return;
     try {
       const contentUri = await FileSystem.getContentUriAsync(uri);
-      await Linking.openURL(contentUri);
+      await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+        data: contentUri,
+        flags: 1,
+        type: 'application/pdf',
+      });
     } catch {
       // Some Android builds do not route content:// directly. Sharing still
       // exposes installed PDF viewers / Files as a safe fallback.
