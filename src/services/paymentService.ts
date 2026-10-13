@@ -10,6 +10,11 @@ export async function getPaymentsForQuotation(id:string){ return (await getPayme
 export async function addPayment(input:Omit<PaymentEntry,'id'|'date'>):Promise<PaymentEntry>{
  const now=new Date().toISOString(); const p:PaymentEntry={...input,id:uuid(),date:now,updated_at:now}; const rows=await getPayments(); rows.unshift(p); await AsyncStorage.setItem(KEY,JSON.stringify(rows)); await AsyncStorage.setItem(`cd_payments_${p.id}`,JSON.stringify(p)); await queueForSync('payments',p.id); return p;
 }
+
+export async function hasAdvancePayment(quotationId:string):Promise<boolean>{ return (await getPaymentsForQuotation(quotationId)).some(p=>p.type==='advance'); }
+export async function updatePayment(id:string, amount:number, mode:PaymentMode):Promise<PaymentEntry|null>{ const rows=await getPayments(); const i=rows.findIndex(p=>p.id===id); if(i<0)return null; rows[i]={...rows[i],amount,mode,updated_at:new Date().toISOString()}; await AsyncStorage.setItem(KEY,JSON.stringify(rows)); await AsyncStorage.setItem('cd_payments_'+id,JSON.stringify(rows[i])); await queueForSync('payments',id); return rows[i]; }
+export async function deletePayment(id:string):Promise<void>{ const rows=await getPayments(); await AsyncStorage.setItem(KEY,JSON.stringify(rows.filter(p=>p.id!==id))); await AsyncStorage.removeItem('cd_payments_'+id); }
+
 export async function paymentSummary(quotationId:string,total:number){ const rows=await getPaymentsForQuotation(quotationId); const paid=rows.reduce((s,p)=>s+p.amount,0); return {rows,paid,balance:Math.max(0,total-paid)}; }
 
 export interface PendingPayment {
