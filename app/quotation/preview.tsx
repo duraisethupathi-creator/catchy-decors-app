@@ -503,6 +503,7 @@ export default function Preview() {
             </TouchableOpacity>
           </View>
           <Field label="Price / R.ft (₹)" value={String(a.price)} onChangeText={(t) => updAcc(a.id, { price: toNum(numericInput(t)) })} keyboardType="numeric" />
+          <Field label="GST % (this accessory)" value={String(a.gst_percent ?? gst.percent ?? 0)} onChangeText={(t) => updAcc(a.id, { gst_percent: Math.max(0, Math.min(100, toNum(numericInput(t)))) })} keyboardType="numeric" />
           <View style={styles.liveTotalRow}>
             <Text style={styles.liveTotalLabel}>Line Total (Qty × Price)</Text>
             <Text style={styles.liveTotalValue}>{formatINR(a.liveTotal)}</Text>
