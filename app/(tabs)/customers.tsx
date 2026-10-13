@@ -70,7 +70,7 @@ export default function Customers() {
             <Ionicons name="trash-outline" size={20} color="#FFB4B6" />
           </TouchableOpacity>
         </View>
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 120 }}>
           <Card>
             <Text style={styles.secTitle}>Customer Details</Text>
             <Text style={styles.detailRow}>📍 {selected.address || 'No address'}</Text>
@@ -165,14 +165,15 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: 20,
-    bottom: 24,
+    bottom: 90,
     width: 56,
     height: 56,
     borderRadius: 28,
     backgroundColor: colors.orange,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 6,
+    elevation: 12,
+    zIndex: 20,
   },
   detailHeader: {
     backgroundColor: colors.navy,
