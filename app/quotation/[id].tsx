@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Linking } from 'react-native';
 import * as Print from 'expo-print';
@@ -32,6 +32,7 @@ export default function QuotationDetail() {
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentMode, setPaymentMode] = useState<PaymentMode>('UPI');
   const [paymentType, setPaymentType] = useState<PaymentType>('regular');
+  const [docPreview, setDocPreview] = useState<{kind:'quotation'|'bill'|'gst';html:string}|null>(null);
   const advanceAlreadyPaid = payments.some(p => p.type === 'advance');
 
   useFocusEffect(
@@ -81,6 +82,14 @@ export default function QuotationDetail() {
     }
   }
 
+  async function previewPdf(kind: 'quotation' | 'bill' | 'gst'): Promise<void> {
+    const resolvedLogo = logoDataUri || await readLogoDataUri(settings.profile.logoUri);
+    const ctx = { profile: settings.profile, template: settings.template, logoDataUri: resolvedLogo };
+    const gst = gstInputFromQuotation(q!);
+    const html = kind === 'gst' ? buildGstBillHtml(q!, gst, ctx) : kind === 'bill' ? buildNonGstBillHtml(q!, ctx) : buildQuotationHtml(q!, null, ctx);
+    setDocPreview({kind,html});
+  }
+
   async function sharePdf(kind: 'quotation' | 'bill' | 'gst'): Promise<void> {
     const uri = await pdf(kind);
     if (!uri || !(await Sharing.isAvailableAsync())) return;
@@ -92,6 +101,13 @@ export default function QuotationDetail() {
   }
 
   return (
+    <>
+    <Modal visible={!!docPreview} animationType="slide" onRequestClose={()=>setDocPreview(null)}>
+      <View style={{flex:1,backgroundColor:'#fff'}}>
+        <View style={{padding:14,flexDirection:'row',gap:10,alignItems:'center'}}><Button title="Back" variant="outline" onPress={()=>setDocPreview(null)}/><Text style={{fontWeight:'900',fontSize:17,flex:1}}>Document Preview</Text>{docPreview?<Button title="Share PDF" onPress={()=>sharePdf(docPreview.kind)}/>:null}</View>
+        <ScrollView contentContainerStyle={{padding:16}}><Text selectable style={{fontSize:12,color:'#333'}}>Preview is ready. Tap Share PDF to open the exact multi-page PDF document. Use Back to return to this quotation.</Text></ScrollView>
+      </View>
+    </Modal>
     <ScrollView style={styles.root} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <Text style={styles.title}>{q.quotation_number}</Text>
@@ -220,11 +236,11 @@ export default function QuotationDetail() {
       <View style={{ gap: 10, marginTop: 16 }}>
         <View style={styles.card}>
           <Text style={styles.sec}>PDF & Billing</Text>
-          <Button title="Quotation PDF" icon="document-text-outline" variant="accent" onPress={() => sharePdf('quotation')} disabled={busy} />
+          <Button title="Quotation PDF" icon="document-text-outline" variant="accent" onPress={() => previewPdf('quotation')} disabled={busy} />
           <View style={{ height: 8 }} />
-          <Button title="Bill Without GST" icon="receipt-outline" variant="outline" onPress={() => sharePdf('bill')} disabled={busy} />
+          <Button title="Bill Without GST" icon="receipt-outline" variant="outline" onPress={() => previewPdf('bill')} disabled={busy} />
           <View style={{ height: 8 }} />
-          <Button title="GST Tax Invoice" icon="receipt" variant="outline" onPress={() => sharePdf('gst')} disabled={busy || !q.gst?.enabled} />
+          <Button title="GST Tax Invoice" icon="receipt" variant="outline" onPress={() => previewPdf('gst')} disabled={busy || !q.gst?.enabled} />
           {!q.gst?.enabled ? <Text style={styles.billingHint}>Enable GST in the quotation to generate the GST Tax Invoice.</Text> : null}
           <View style={styles.moreDivider} />
           <Text style={styles.moreTitle}>More Options</Text>
@@ -279,6 +295,7 @@ export default function QuotationDetail() {
         } />
       </View>
     </ScrollView>
+    </>
   );
 }
 
