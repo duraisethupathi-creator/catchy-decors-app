@@ -12,25 +12,18 @@ import { APP_PACKAGE, APP_VERSION } from '../../src/constants/version';
 import { useAuth } from '../../src/context/AuthContext';
 import { useSettings } from '../../src/context/SettingsContext';
 import { changePassword, logout } from '../../src/services/authService';
-import { getSyncState, syncWithSupabase } from '../../src/services/db';
-import { isSupabaseConfigured, hydrateSupabaseConfig } from '../../src/services/supabaseClient';
 import { getStoredSession } from '../../src/services/googleAuth';
 
 export default function Settings() {
   const { user, refresh } = useAuth();
   const { settings, reset } = useSettings();
-  const [sync, setSync] = useState({ pending: 0, lastSyncAt: null as string | null });
   const [curPw, setCurPw] = useState('');
   const [newPw, setNewPw] = useState('');
   const [googleEmail, setGoogleEmail] = useState<string | null>(null);
-  const [cloudReady, setCloudReady] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
-      getSyncState().then(setSync);
       (async () => {
-        await hydrateSupabaseConfig();
-        setCloudReady(isSupabaseConfigured());
         const g = await getStoredSession();
         setGoogleEmail(g?.email ?? null);
       })();
@@ -57,13 +50,6 @@ export default function Settings() {
     });
   }
 
-  async function syncNow() {
-    toast('Syncing…');
-    const ok = await syncWithSupabase();
-    setSync(await getSyncState());
-    toast(ok ? 'Sync complete' : 'Not configured — data stays safe offline');
-  }
-
   const logoSource = settings.profile.logoUri ? { uri: settings.profile.logoUri } : getBrandLogo();
 
   const rows: { icon: keyof typeof Ionicons.glyphMap; title: string; sub: string; route: string; tint: string }[] = [
@@ -87,13 +73,6 @@ export default function Settings() {
       sub: googleEmail ? `Signed in · ${googleEmail}` : 'Sign in and back up your data',
       route: '/settings/google',
       tint: '#0E9A4C',
-    },
-    {
-      icon: 'cloud-upload',
-      title: 'Cloud Sync (Supabase)',
-      sub: cloudReady ? `Credentials saved · ${sync.pending} queued` : 'Paste URL + anon key to enable',
-      route: '/settings/supabase',
-      tint: '#6B34C7',
     },
   ];
 
@@ -124,16 +103,6 @@ export default function Settings() {
           <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
         </TouchableOpacity>
       ))}
-
-      <Text style={styles.groupLabel}>Data & Sync</Text>
-      <Card>
-        <Text style={styles.note}>
-          {sync.pending > 0
-            ? `${sync.pending} record(s) waiting to sync.`
-            : 'Everything is stored on this device. Add Google Drive backup or Supabase sync above.'}
-        </Text>
-        <Button title="Sync Now (Supabase)" icon="cloud-upload-outline" variant="accent" onPress={syncNow} />
-      </Card>
 
       <Text style={styles.groupLabel}>Account</Text>
       <Card>
