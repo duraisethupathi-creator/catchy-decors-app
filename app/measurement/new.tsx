@@ -109,6 +109,15 @@ export default function Measurements() {
     setRows((r) => r.map((row) => (row.id === id ? { ...row, ...patch } : row)));
   }
 
+  function addCurtainLayer(kind: 'Sheer' | 'Blackout Lining' | 'Semi Lining') {
+    const source = rows.find(r => r.product === 'curtains' && r.id === activeId) ?? [...rows].reverse().find(r => r.product === 'curtains');
+    if (!source) { toast('Add the main Curtain measurement first'); return; }
+    const id=uid();
+    const copy:Row={...source,id,type:kind,price:'',fabricType:kind};
+    setRows(r=>[...r,copy]); setActiveId(id); setSelectedProducts(p=>p.includes('curtains')?p:[...p,'curtains']);
+    toast(kind+' size copied from main Curtain');
+  }
+
   function removeRow(id: string) {
     setRows((r) => {
       const next = r.filter((row) => row.id !== id);
@@ -237,6 +246,7 @@ export default function Measurements() {
           {(row.product==='blinds'||row.product==='mosquito_net')?<><Text style={styles.miniLabel}>Measurement Unit</Text><ChipGroup options={['inch','mm']} selected={row.measurementUnit} onSelect={v=>updateRow(row.id,{measurementUnit:v as 'inch'|'mm'})}/></>:null}
           {row.product==='curtains'?<Field label="Part" value={row.part} onChangeText={t=>updateRow(row.id,{part:numericInput(t)})} keyboardType="numeric" placeholder="0"/>:null}
           <View style={styles.halfRow}><View style={{flex:1,marginRight:8}}><Field label={def.formula==='accessories'?'Curtain Width (in)':def.formula==='linear_meter'?'Material (mtr)':'Width (in)'} value={row.width} onChangeText={t=>updateRow(row.id,{width:numericInput(t)})} keyboardType="numeric" placeholder="0"/></View>{def.usesHeight?<View style={{flex:1}}><Field label="Height" value={row.height} onChangeText={t=>updateRow(row.id,{height:numericInput(t)})} keyboardType="numeric" placeholder="0"/></View>:<View style={{flex:1}}/>}</View>
+          {row.product==='curtains'?<><Text style={styles.miniLabel}>Add Curtain Layer · Auto-copy current size</Text><View style={{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:8}}>{(['Sheer','Blackout Lining','Semi Lining'] as const).map(k=><TouchableOpacity key={k} style={styles.layerChip} onPress={()=>addCurtainLayer(k)}><Text style={styles.layerChipText}>+ {k}</Text></TouchableOpacity>)}</View></>:null}
           <Field label="Fabric Details" value={row.fabricType} onChangeText={t=>updateRow(row.id,{fabricType:t})} placeholder="e.g. Cotton, Blackout"/>
           <Field label="Price (₹)" value={row.price} onChangeText={t=>updateRow(row.id,{price:numericInput(t)})} keyboardType="numeric" placeholder="0"/>
           <View style={styles.preview}><Text style={styles.previewLabel}>LIVE CALCULATION</Text><View style={{flexDirection:'row',justifyContent:'space-between',marginTop:6}}><Text style={styles.previewQty}>Quantity ({def.qtyUnit}): <Text style={styles.previewVal}>{qty}</Text></Text><Text style={styles.previewQty}>Total: <Text style={styles.previewVal}>{formatINR(tot)}</Text></Text></View></View>
@@ -311,4 +321,6 @@ const styles = StyleSheet.create({
   savedTitle: { fontWeight: '800', color: colors.textDark, fontSize: 13 },
   savedMeta: { color: colors.textMuted, fontSize: 11.5, marginTop: 2 },
   savedTotal: { fontWeight: '900', color: colors.navy, fontSize: 13 },
+  layerChip:{backgroundColor:'#FFF3E0',borderWidth:1,borderColor:colors.orange,borderRadius:999,paddingHorizontal:11,paddingVertical:8},
+  layerChipText:{color:colors.navy,fontWeight:'800',fontSize:11.5},
 });
