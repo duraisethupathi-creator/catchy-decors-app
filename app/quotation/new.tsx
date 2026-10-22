@@ -145,6 +145,12 @@ export default function NewQuotation() {
   function updateAcc(id: string, patch: Partial<AccRow>) {
     setAccRows((r) => r.map((row) => (row.id === id ? { ...row, ...patch } : row)));
   }
+  function addSheerTrack() {
+    const main=[...accRows].reverse().find(r=>r.trackType.toLowerCase()!=='sheer track' && Number(r.width)>0);
+    if(!main){toast('Add Main Track width first');return;}
+    setAccRows(r=>[...r,{id:uid(),area:main.area,trackType:'Sheer Track',width:main.width,price:''}]);
+    toast('Sheer Track size copied from Main Track');
+  }
 
   async function addReferencePhoto(source: 'camera' | 'gallery') {
     const permission = source === 'camera' ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -356,7 +362,7 @@ export default function NewQuotation() {
           <Text style={styles.formulaNote}>Quantity / R.ft = Width / 12 (auto)</Text>
         </Card>
       ))}
-      <Button title="+ Add Accessory Row" icon="add" variant="outline" onPress={addAccRow} />
+      <View style={{gap:8}}><Button title="+ Add Accessory Row" icon="add" variant="outline" onPress={addAccRow} /><Button title="+ Sheer Track · Copy Main Track Size" icon="copy-outline" variant="accent" onPress={addSheerTrack} /></View>
 
       <SectionTitle>
         <Text style={{ fontSize: 16, fontWeight: '800', color: colors.text }}>Other Charges</Text>
