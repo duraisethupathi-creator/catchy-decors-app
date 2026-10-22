@@ -120,6 +120,17 @@ export default function NewQuotation() {
   const bundle = useMemo(() => buildCharges(effectiveCharges), [effectiveCharges]);
   const grandTotal = computeGrandTotal(subtotal, accessoriesTotal, bundle.totals);
   /* Requirement 5: fabric quantity that belongs in the Other Charges area. */
+  const liningItems = items.filter(i=>i.product_type==='curtains' && (i.fabric_type==='Blackout Lining'||i.fabric_type==='Semi Lining'));
+  const liningNote = liningItems.length ? liningItems.map(i=>`${i.area_name}: ${i.fabric_type} · ${i.quantity} mtr`).join(' | ') : '';
+  useEffect(()=>{
+    if(!liningNote)return;
+    setCharges(prev=>{
+      const desc=`Lining Fabric Total · ${liningNote}`;
+      if(prev.additionalDesc===desc)return prev;
+      return {...prev,additionalDesc:desc};
+    });
+  },[liningNote]);
+
   const fabricNote = (() => {
     const mtr = round2(items.filter((i) => i.product_type === 'curtains').reduce((s, i) => s + (i.quantity || 0), 0));
     const sqft = round2(items.reduce((s, i) => s + (i.fabric_area || 0), 0));
@@ -312,7 +323,7 @@ export default function NewQuotation() {
           const unitLabel = colLabel === 'Qty' ? `Qty (${def.qtyUnit})` : colLabel;
           return (
             <View key={it.id} style={styles.lineRow}>
-              <Text style={styles.lineText}>{i + 1}. {it.area_name} — {def.name} · {unitLabel} {it.quantity}</Text>
+              <Text style={styles.lineText}>{i + 1}. {it.area_name} — {def.name}{it.product_type==='curtains'&&it.fabric_type ? ` with ${it.fabric_type}` : ''} · {unitLabel} {it.quantity}</Text>
               <Text style={styles.lineTotal}>{formatINR(it.total, false)}</Text>
             </View>
           );
