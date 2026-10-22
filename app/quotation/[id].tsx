@@ -129,6 +129,7 @@ export default function QuotationDetail() {
         <StatusChip status={q.status} />
       </View>
       <Text style={styles.sub}>{q.customer_name} · {q.customer_phone} · {formatDate(q.quotation_date)}</Text>
+      <Button title="Edit Quotation" icon="create-outline" variant="accent" style={{marginTop:12}} onPress={async()=>{if(q.status==='completed'||balance<=0){const auth=await adminBiometricApproval('Edit completed quotation');if(!auth.ok)return Alert.alert('Admin Verification',auth.error||'Verification failed');}router.push(`/quotation/edit?id=${q.id}`);}} />
 
       <View style={styles.card}>
         <Text style={styles.sec}>Items</Text>
