@@ -129,10 +129,17 @@ export async function upsertMany(
   if (!isSupabaseConfigured()) return { ok: false, error: 'not-configured' };
   if (rows.length === 0) return { ok: true };
   try {
+    // PostgREST bulk inserts require every object in the request to have the
+    // same keys. Older/offline records can legitimately miss newer optional
+    // fields, so normalize the batch and send missing values as null.
+    const keys = Array.from(new Set(rows.flatMap((row) => Object.keys(row))));
+    const normalized = rows.map((row) =>
+      Object.fromEntries(keys.map((k) => [k, Object.prototype.hasOwnProperty.call(row, k) ? row[k] : null]))
+    );
     const res = await fetch(`${url}/rest/v1/${table}`, {
       method: 'POST',
       headers: { ...headers(), Prefer: 'resolution=merge-duplicates,return=minimal' },
-      body: JSON.stringify(rows),
+      body: JSON.stringify(normalized),
     });
     if (!res.ok) return { ok: false, error: `HTTP ${res.status} ${await safeText(res)}` };
     return { ok: true };
