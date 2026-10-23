@@ -120,8 +120,8 @@ export default function NewQuotation() {
   const bundle = useMemo(() => buildCharges(effectiveCharges), [effectiveCharges]);
   const grandTotal = computeGrandTotal(subtotal, accessoriesTotal, bundle.totals);
   /* Requirement 5: fabric quantity that belongs in the Other Charges area. */
-  const liningItems = items.filter(i=>i.product_type==='curtains' && (i.type?.includes('Blackout Lining')||i.type?.includes('Semi Lining')));
-  const liningNote = liningItems.length ? liningItems.map(i=>`${i.area_name}: ${i.type?.includes('Blackout Lining')?'Blackout Lining':'Semi Lining'} · ${i.quantity} mtr`).join(' | ') : '';
+  const liningItems = items.filter(i=>i.product_type==='curtains' && !!i.lining_type);
+  const liningNote = liningItems.length ? liningItems.map(i=>`${i.area_name}: ${i.lining_type} · ${i.quantity} mtr`).join(' | ') : '';
   useEffect(()=>{
     if(!liningNote)return;
     setCharges(prev=>{
