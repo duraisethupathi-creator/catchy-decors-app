@@ -157,19 +157,21 @@ export default function NewQuotation() {
     setAccRows((r) => r.map((row) => (row.id === id ? { ...row, ...patch } : row)));
   }
   function addCurtainTracksFromMeasurement() {
-    const curtain=[...items].reverse().find(i=>i.product_type==='curtains' && Number(i.width)>0);
-    if(!curtain){toast('Add Main Curtain measurement first');return;}
-    const width=String(curtain.width||''); const area=curtain.area_name||'';
+    const curtains=items.filter(i=>i.product_type==='curtains' && Number(i.width)>0 && i.fabric_type!=='Sheer');
+    if(!curtains.length){toast('Add Main Curtain measurement first');return;}
     setAccRows(prev=>{
-      const hasMain=prev.some(r=>r.area===area && r.trackType!=='Sheer Track' && Number(r.width)>0);
-      const hasSheer=prev.some(r=>r.area===area && r.trackType==='Sheer Track');
       const next=[...prev];
-      if(!hasMain) next.push({id:uid(),area,trackType:'Aluminium Track',width,price:''});
-      const hasSheerCurtain=items.some(i=>i.product_type==='curtains' && i.area_name===area && i.fabric_type==='Sheer');
-      if(hasSheerCurtain&&!hasSheer) next.push({id:uid(),area,trackType:'Sheer Track',width,price:''});
+      for(const curtain of curtains){
+        const width=String(curtain.width||''); const area=curtain.area_name||'';
+        const hasMain=next.some(r=>r.area===area && r.trackType!=='Sheer Track' && Number(r.width)>0);
+        const hasSheer=next.some(r=>r.area===area && r.trackType==='Sheer Track');
+        if(!hasMain) next.push({id:uid(),area,trackType:'Aluminium Track',width,price:''});
+        const hasSheerCurtain=items.some(i=>i.product_type==='curtains' && i.area_name===area && i.fabric_type==='Sheer');
+        if(hasSheerCurtain&&!hasSheer) next.push({id:uid(),area,trackType:'Sheer Track',width,price:''});
+      }
       return next;
     });
-    toast('Curtain track sizes copied automatically');
+    toast('All curtain track sizes copied automatically');
   }
   function addSheerTrack() {
     const main=[...accRows].reverse().find(r=>r.trackType.toLowerCase()!=='sheer track' && Number(r.width)>0);
@@ -388,7 +390,7 @@ export default function NewQuotation() {
           <Text style={styles.formulaNote}>Quantity / R.ft = Width / 12 (auto)</Text>
         </Card>
       ))}
-      <View style={{gap:8}}><Button title="Smart Combo · Add Curtain Tracks" icon="sparkles" variant="accent" onPress={addCurtainTracksFromMeasurement} /><Button title="+ Add Accessory Row" icon="add" variant="outline" onPress={addAccRow} /><Button title="+ Sheer Track · Copy Main Track Size" icon="copy-outline" variant="outline" onPress={addSheerTrack} /></View>
+      <Card style={{marginTop:10}}><View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center'}}><View style={{flex:1}}><Text style={{fontSize:15,fontWeight:'900',color:colors.navy}}>Smart Curtain Combo</Text><Text style={styles.formulaNote}>Main Curtain → Main Track · Sheer → Sheer Track · Stitching qty auto</Text></View><Ionicons name="sparkles" size={22} color={colors.orange}/></View><View style={{gap:8,marginTop:10}}><Button title="Auto Add Tracks for All Curtains" icon="sparkles" variant="accent" onPress={addCurtainTracksFromMeasurement} /><Button title="+ Add Accessory Row" icon="add" variant="outline" onPress={addAccRow} /><Button title="+ Sheer Track · Copy Main Track Size" icon="copy-outline" variant="outline" onPress={addSheerTrack} /></View></Card>
 
       <SectionTitle>
         <Text style={{ fontSize: 16, fontWeight: '800', color: colors.text }}>Other Charges</Text>
