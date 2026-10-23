@@ -156,6 +156,21 @@ export default function NewQuotation() {
   function updateAcc(id: string, patch: Partial<AccRow>) {
     setAccRows((r) => r.map((row) => (row.id === id ? { ...row, ...patch } : row)));
   }
+  function addCurtainTracksFromMeasurement() {
+    const curtain=[...items].reverse().find(i=>i.product_type==='curtains' && Number(i.width)>0);
+    if(!curtain){toast('Add Main Curtain measurement first');return;}
+    const width=String(curtain.width||''); const area=curtain.area_name||'';
+    setAccRows(prev=>{
+      const hasMain=prev.some(r=>r.area===area && r.trackType!=='Sheer Track' && Number(r.width)>0);
+      const hasSheer=prev.some(r=>r.area===area && r.trackType==='Sheer Track');
+      const next=[...prev];
+      if(!hasMain) next.push({id:uid(),area,trackType:'Aluminium Track',width,price:''});
+      const hasSheerCurtain=items.some(i=>i.product_type==='curtains' && i.area_name===area && i.fabric_type==='Sheer');
+      if(hasSheerCurtain&&!hasSheer) next.push({id:uid(),area,trackType:'Sheer Track',width,price:''});
+      return next;
+    });
+    toast('Curtain track sizes copied automatically');
+  }
   function addSheerTrack() {
     const main=[...accRows].reverse().find(r=>r.trackType.toLowerCase()!=='sheer track' && Number(r.width)>0);
     if(!main){toast('Add Main Track width first');return;}
@@ -373,7 +388,7 @@ export default function NewQuotation() {
           <Text style={styles.formulaNote}>Quantity / R.ft = Width / 12 (auto)</Text>
         </Card>
       ))}
-      <View style={{gap:8}}><Button title="+ Add Accessory Row" icon="add" variant="outline" onPress={addAccRow} /><Button title="+ Sheer Track · Copy Main Track Size" icon="copy-outline" variant="accent" onPress={addSheerTrack} /></View>
+      <View style={{gap:8}}><Button title="Smart Combo · Add Curtain Tracks" icon="sparkles" variant="accent" onPress={addCurtainTracksFromMeasurement} /><Button title="+ Add Accessory Row" icon="add" variant="outline" onPress={addAccRow} /><Button title="+ Sheer Track · Copy Main Track Size" icon="copy-outline" variant="outline" onPress={addSheerTrack} /></View>
 
       <SectionTitle>
         <Text style={{ fontSize: 16, fontWeight: '800', color: colors.text }}>Other Charges</Text>
