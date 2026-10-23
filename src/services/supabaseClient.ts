@@ -175,5 +175,5 @@ async function safeText(res: Response): Promise<string> {
 }
 
 /** Tables that take part in sync (order matters for referential sanity). */
-export const SYNC_TABLES = ['customers', 'quotations', 'measurements', 'accessories', 'app_settings'] as const;
+export const SYNC_TABLES = ['customers', 'quotations', 'measurements', 'accessories', 'payments', 'expenses', 'rate_library', 'service_bills', 'app_settings'] as const;
 export type SyncTable = (typeof SYNC_TABLES)[number];
