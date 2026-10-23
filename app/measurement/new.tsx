@@ -110,12 +110,15 @@ export default function Measurements() {
   }
 
   function addCurtainLayer(kind: 'Sheer') {
-    const source = rows.find(r => r.product === 'curtains' && r.id === activeId) ?? [...rows].reverse().find(r => r.product === 'curtains');
+    const active=rows.find(r=>r.product==='curtains'&&r.id===activeId);
+    const source=(active?.type==='Sheer'?rows.find(r=>r.product==='curtains'&&r.area===active.area&&r.type!=='Sheer'):active) ?? [...rows].reverse().find(r=>r.product==='curtains'&&r.type!=='Sheer');
     if (!source) { toast('Add the main Curtain measurement first'); return; }
+    const existing=rows.find(r=>r.product==='curtains'&&r.type==='Sheer'&&r.area.trim().toLowerCase()===source.area.trim().toLowerCase());
+    if(existing){ setActiveId(existing.id); toast('Sheer already added for this area'); return; }
     const id=uid();
-    const copy:Row={...source,id,type:kind,price:'',fabricType:kind};
+    const copy:Row={...source,id,type:'Sheer',price:'',fabricType:''};
     setRows(r=>[...r,copy]); setActiveId(id); setSelectedProducts(p=>p.includes('curtains')?p:[...p,'curtains']);
-    toast(kind+' size copied from main Curtain');
+    toast('Sheer size copied from main Curtain');
   }
 
   function removeRow(id: string) {
