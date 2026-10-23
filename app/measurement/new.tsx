@@ -98,7 +98,7 @@ export default function Measurements() {
     const id = uid();
     setRows((r) => [
       ...r,
-      { id, product, area: '', type: def.typeOptions[0] ?? '', width: '', height: '', price: '', fabricType: '', fabricArea: '', wallBonusRoll: false, part: '', measurementUnit: 'inch' },
+      { id, product, area: '', type: product==='curtains' ? 'Main' : (def.typeOptions[0] ?? ''), width: '', height: '', price: '', fabricType: '', fabricArea: '', wallBonusRoll: false, part: '', measurementUnit: 'inch' },
     ]);
     setActiveId(id);
     setSelectedProducts((p) => (p.includes(product) ? p : [...p, product]));
@@ -186,7 +186,8 @@ export default function Measurements() {
         quantity: q,
         price: Number(r.price) || 0,
         fabric_type: r.fabricType.trim(),
-        fabric_area: Number(r.fabricArea) || 0,
+        fabric_area: 0,
+        lining_type: r.fabricArea || undefined,
         total: calculateTotal(q, r.price),
       };
     });
@@ -245,11 +246,11 @@ export default function Measurements() {
         return <Card style={{marginTop:14}}>
           <View style={styles.rowHead}><Text style={styles.rowTitle}>Add {def.name}</Text><Text style={styles.autoSave}>{draftSaved?'✓ Auto saved':'Saving…'}</Text></View>
           <Field label="Area Name" value={row.area} onChangeText={t=>updateRow(row.id,{area:t})} placeholder="e.g. Living Room Window 1"/>
-          <Text style={styles.miniLabel}>{def.typeLabel}</Text><ChipGroup options={def.typeOptions} selected={row.type} onSelect={v=>updateRow(row.id,{type:v})}/>
+          {row.product==='curtains'?<><Text style={styles.miniLabel}>Curtain Layer</Text><ChipGroup options={['Main','Sheer']} selected={row.type==='Sheer'?'Sheer':'Main'} onSelect={v=>{if(v==='Sheer'){addCurtainLayer('Sheer');}else{updateRow(row.id,{type:'Main'});}}}/></>:<><Text style={styles.miniLabel}>{def.typeLabel}</Text><ChipGroup options={def.typeOptions} selected={row.type} onSelect={v=>updateRow(row.id,{type:v})}/></>}
           {(row.product==='blinds'||row.product==='mosquito_net')?<><Text style={styles.miniLabel}>Measurement Unit</Text><ChipGroup options={['inch','mm']} selected={row.measurementUnit} onSelect={v=>updateRow(row.id,{measurementUnit:v as 'inch'|'mm'})}/></>:null}
           {row.product==='curtains'?<Field label="Part" value={row.part} onChangeText={t=>updateRow(row.id,{part:numericInput(t)})} keyboardType="numeric" placeholder="0"/>:null}
           <View style={styles.halfRow}><View style={{flex:1,marginRight:8}}><Field label={def.formula==='accessories'?'Curtain Width (in)':def.formula==='linear_meter'?'Material (mtr)':'Width (in)'} value={row.width} onChangeText={t=>updateRow(row.id,{width:numericInput(t)})} keyboardType="numeric" placeholder="0"/></View>{def.usesHeight?<View style={{flex:1}}><Field label="Height" value={row.height} onChangeText={t=>updateRow(row.id,{height:numericInput(t)})} keyboardType="numeric" placeholder="0"/></View>:<View style={{flex:1}}/>}</View>
-          {row.product==='curtains'?<><View style={styles.comboHead}><View><Text style={styles.comboTitle}>Smart Curtain Combo</Text><Text style={styles.comboSub}>Main size → optional layers auto copy</Text></View><Ionicons name="sparkles" size={20} color={colors.orange}/></View><View style={{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:8}}><TouchableOpacity style={styles.layerChip} onPress={()=>addCurtainLayer('Sheer')}><Text style={styles.layerChipText}>+ Sheer · Copy Size</Text></TouchableOpacity>{(['Blackout Lining','Semi Lining'] as const).map(k=>{const on=row.fabricType===k;return <TouchableOpacity key={k} style={[styles.layerChip,on&&{backgroundColor:colors.navy}]} onPress={()=>updateRow(row.id,{fabricType:on?'':k})}><Text style={[styles.layerChipText,on&&{color:'#fff'}]}>{on?'✓ ':''}{k}</Text></TouchableOpacity>})}</View></>:null}
+          {row.product==='curtains'&&row.type!=='Sheer'?<><View style={styles.comboHead}><View><Text style={styles.comboTitle}>Smart Curtain Combo</Text><Text style={styles.comboSub}>Main size → optional layers auto copy</Text></View><Ionicons name="sparkles" size={20} color={colors.orange}/></View><View style={{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:8}}><TouchableOpacity style={styles.layerChip} onPress={()=>addCurtainLayer('Sheer')}><Text style={styles.layerChipText}>+ Sheer · Copy Size</Text></TouchableOpacity>{(['Blackout Lining','Semi Lining'] as const).map(k=>{const on=row.fabricType===k;return <TouchableOpacity key={k} style={[styles.layerChip,on&&{backgroundColor:colors.navy}]} onPress={()=>updateRow(row.id,{fabricType:on?'':k})}><Text style={[styles.layerChipText,on&&{color:'#fff'}]}>{on?'✓ ':''}{k}</Text></TouchableOpacity>})}</View></>:null}
           <Field label="Fabric Details" value={row.fabricType} onChangeText={t=>updateRow(row.id,{fabricType:t})} placeholder="e.g. Cotton, Blackout"/>
           <Field label="Price (₹)" value={row.price} onChangeText={t=>updateRow(row.id,{price:numericInput(t)})} keyboardType="numeric" placeholder="0"/>
           <View style={styles.preview}><Text style={styles.previewLabel}>LIVE CALCULATION</Text><View style={{flexDirection:'row',justifyContent:'space-between',marginTop:6}}><Text style={styles.previewQty}>Quantity ({def.qtyUnit}): <Text style={styles.previewVal}>{qty}</Text></Text><Text style={styles.previewQty}>Total: <Text style={styles.previewVal}>{formatINR(tot)}</Text></Text></View></View>
