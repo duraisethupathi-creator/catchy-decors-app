@@ -10,6 +10,8 @@ export interface Measurement {
   fabric_type?: string;
   /** Fabric area in square feet, entered per item. */
   fabric_area?: number;
+  /** Optional curtain lining selection, kept separate from Main/Sheer and fabric name. */
+  lining_type?: 'Blackout Lining' | 'Semi Lining';
   /** Manual curtain Part value. */
   part?: number;
   /** Measurement unit for blinds/mosquito net. */
