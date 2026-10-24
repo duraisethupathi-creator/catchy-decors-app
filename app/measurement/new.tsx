@@ -47,7 +47,7 @@ interface Row {
 const uid = () => Math.random().toString(36).slice(2);
 
 export default function Measurements() {
-  const params = useLocalSearchParams<{ customerId?: string }>();
+  const params = useLocalSearchParams<{ customerId?: string; fresh?: string }>();
   const [customerId, setCustomerId] = useState<string>('');
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [selectedProducts, setSelectedProducts] = useState<ProductKey[]>([]);
@@ -67,7 +67,13 @@ export default function Measurements() {
         }
         setCustomerId(cid);
         setCustomer(await getCustomer(cid));
-        const draft = await loadDraftMeasurements(cid);
+        const isFresh = params.fresh === '1';
+        if (isFresh) {
+          await saveMeasurements(cid, []);
+          await saveAccessories(cid, []);
+          setRows([]); setSelectedProducts([]); setActiveId('');
+        }
+        const draft = isFresh ? [] : await loadDraftMeasurements(cid);
         if (draft.length > 0) {
           setRows(
             draft.map((d) => ({
@@ -90,7 +96,7 @@ export default function Measurements() {
         }
         hydrated.current = true;
       })();
-    }, [params.customerId])
+    }, [params.customerId, params.fresh])
   );
 
   function addRow(product: ProductKey) {
