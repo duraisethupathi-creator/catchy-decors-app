@@ -12,7 +12,7 @@ import { APP_PACKAGE, APP_VERSION } from '../../src/constants/version';
 import { useAuth } from '../../src/context/AuthContext';
 import { useSettings } from '../../src/context/SettingsContext';
 import { changePassword, logout } from '../../src/services/authService';
-import { getSyncState, syncWithSupabase } from '../../src/services/db';
+import { getSyncState, autoSyncTwoDevices } from '../../src/services/db';
 import { isSupabaseConfigured, hydrateSupabaseConfig } from '../../src/services/supabaseClient';
 import { getStoredSession } from '../../src/services/googleAuth';
 
@@ -59,9 +59,9 @@ export default function Settings() {
 
   async function syncNow() {
     toast('Syncing…');
-    const ok = await syncWithSupabase();
+    const ok = await autoSyncTwoDevices();
     setSync(await getSyncState());
-    toast(ok ? 'Sync complete' : 'Not configured — data stays safe offline');
+    toast(ok ? 'Two-device sync complete' : 'Sync failed — check Cloud Sync settings');
   }
 
   const logoSource = settings.profile.logoUri ? { uri: settings.profile.logoUri } : getBrandLogo();
@@ -128,7 +128,7 @@ export default function Settings() {
       <Text style={styles.groupLabel}>Data & Sync</Text>
       <Card>
         <Text style={styles.note}>{sync.pending > 0 ? `${sync.pending} record(s) waiting to sync.` : 'Supabase cloud sync queue is up to date.'}</Text>
-        <Button title="Sync Now (Supabase)" icon="cloud-upload-outline" variant="accent" onPress={syncNow} />
+        <Button title="Sync Both Devices (Supabase)" icon="cloud-upload-outline" variant="accent" onPress={syncNow} />
       </Card>
 
       <Text style={styles.groupLabel}>Account</Text>
