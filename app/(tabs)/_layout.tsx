@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../src/constants/colors';
-import { AuthProvider, useAuth } from '../../src/context/AuthContext';
+import { useAuth } from '../../src/context/AuthContext';
 import { can } from '../../src/services/permissions';
 
 function TabIcon({ name, label, focused }: { name: keyof typeof Ionicons.glyphMap; label: string; focused: boolean }) {
@@ -61,7 +61,7 @@ function RoleAwareTabs() {
 }
 
 export default function TabsLayout() {
-  return <AuthProvider><RoleAwareTabs /></AuthProvider>;
+  return <RoleAwareTabs />;
 }
 
 export const unstable_settings = { initialRouteName: 'dashboard' };
