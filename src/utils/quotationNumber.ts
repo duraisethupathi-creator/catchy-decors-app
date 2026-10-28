@@ -4,6 +4,7 @@ import { formatQuotationNumber } from './numbering';
 import type { QuotationTemplate } from '../types/settings';
 
 const KEY = 'cd_quotation_seq';
+const QUOTATIONS_KEY = 'cd_quotations';
 let memorySeq: number | null = null;
 
 export { formatQuotationNumber } from './numbering';
@@ -24,36 +25,65 @@ async function loadTemplate(): Promise<QuotationTemplate> {
   return defaultTemplate();
 }
 
+/**
+ * Find the highest sequence already present in this device's synced quotation list.
+ * Cloud sync stores the shared quotations in cd_quotations, but the old counter was
+ * device-local only, so a freshly installed second device could start again at 1.
+ */
+async function highestLocalSequence(t: QuotationTemplate, year: number): Promise<number> {
+  try {
+    const raw = await AsyncStorage.getItem(QUOTATIONS_KEY);
+    const rows = raw ? (JSON.parse(raw) as Array<{ quotation_number?: string }>) : [];
+    const sep = typeof t.separator === 'string' ? t.separator : '-';
+    const parts: string[] = [];
+    const prefix = (t.prefix ?? '').trim();
+    if (prefix) parts.push(prefix);
+    if (t.includeYear) parts.push(String(year));
+    const expectedStart = parts.length ? parts.join(sep) + sep : '';
+    let highest = 0;
+    for (const row of rows) {
+      const number = String(row.quotation_number ?? '');
+      if (!number.startsWith(expectedStart)) continue;
+      const suffix = number.slice(expectedStart.length);
+      if (!/^\\d+$/.test(suffix)) continue;
+      highest = Math.max(highest, Number(suffix) || 0);
+    }
+    return highest;
+  } catch {
+    return 0;
+  }
+}
+
+/** Compute next sequence from both the local counter and synced quotation records. */
+async function nextSequence(t: QuotationTemplate, year: number): Promise<number> {
+  let storedSeq = 0;
+  try {
+    const raw = await AsyncStorage.getItem(KEY);
+    const data = raw ? (JSON.parse(raw) as { year?: number; seq?: number }) : null;
+    if (data?.year === year) storedSeq = Number(data.seq) || 0;
+  } catch {
+    /* local counter may be missing on a new device */
+  }
+  const existingSeq = await highestLocalSequence(t, year);
+  return Math.max(storedSeq, existingSeq, memorySeq ?? 0, Math.max(0, t.startNumber - 1)) + 1;
+}
+
 /** Consume and return the next document number using the configured template. */
 export async function nextQuotationNumber(): Promise<string> {
   const t = await loadTemplate();
   const year = new Date().getFullYear();
-  try {
-    const raw = await AsyncStorage.getItem(KEY);
-    const data = raw ? (JSON.parse(raw) as { year?: number; seq?: number }) : null;
-    const seq = data && data.year === year ? (data.seq ?? 0) + 1 : Math.max(1, t.startNumber);
-    await AsyncStorage.setItem(KEY, JSON.stringify({ year, seq }));
-    memorySeq = seq;
-    return formatQuotationNumber(t, seq, year);
-  } catch {
-    const seq = (memorySeq ?? t.startNumber - 1) + 1;
-    memorySeq = seq;
-    return formatQuotationNumber(t, seq, year);
-  }
+  const seq = await nextSequence(t, year);
+  await AsyncStorage.setItem(KEY, JSON.stringify({ year, seq }));
+  memorySeq = seq;
+  return formatQuotationNumber(t, seq, year);
 }
 
 /** Peek the next number without consuming it. */
 export async function peekQuotationNumber(): Promise<string> {
   const t = await loadTemplate();
   const year = new Date().getFullYear();
-  try {
-    const raw = await AsyncStorage.getItem(KEY);
-    const data = raw ? (JSON.parse(raw) as { year?: number; seq?: number }) : null;
-    const seq = data && data.year === year ? (data.seq ?? 0) + 1 : Math.max(1, t.startNumber);
-    return formatQuotationNumber(t, seq, year);
-  } catch {
-    return formatQuotationNumber(t, memorySeq ? memorySeq + 1 : t.startNumber, year);
-  }
+  const seq = await nextSequence(t, year);
+  return formatQuotationNumber(t, seq, year);
 }
 
 /** Reset the running sequence (Settings → Template → Numbering). */
