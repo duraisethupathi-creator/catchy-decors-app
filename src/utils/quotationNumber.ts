@@ -42,11 +42,23 @@ async function highestLocalSequence(t: QuotationTemplate, year: number): Promise
     const expectedStart = parts.length ? parts.join(sep) + sep : '';
     let highest = 0;
     for (const row of rows) {
-      const number = String(row.quotation_number ?? '');
-      if (!number.startsWith(expectedStart)) continue;
-      const suffix = number.slice(expectedStart.length);
-      if (!/^\d+$/.test(suffix)) continue;
-      highest = Math.max(highest, Number(suffix) || 0);
+      const number = String(row.quotation_number ?? '').trim();
+      if (!number) continue;
+
+      // First honour this device's configured number format.
+      if (number.startsWith(expectedStart)) {
+        const suffix = number.slice(expectedStart.length);
+        if (/^\\d+$/.test(suffix)) {
+          highest = Math.max(highest, Number(suffix) || 0);
+          continue;
+        }
+      }
+
+      // A new device may not yet have the same numbering template. Recognise
+      // already-synced quotation numbers even when their prefix/separator differs.
+      if (t.includeYear && !number.includes(String(year))) continue;
+      const suffixMatch = number.match(/(\\d+)$/);
+      if (suffixMatch) highest = Math.max(highest, Number(suffixMatch[1]) || 0);
     }
     return highest;
   } catch {
