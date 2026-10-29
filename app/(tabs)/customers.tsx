@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +10,7 @@ import { getQuotationsByCustomer } from '../../src/services/quotationService';
 import { formatDate } from '../../src/utils/currency';
 import type { Customer } from '../../src/types/customer';
 import type { Quotation } from '../../src/types/quotation';
+import { onSyncStateChange } from '../../src/services/db';
 
 export default function Customers() {
   const [rows, setRows] = useState<Customer[]>([]);
@@ -22,6 +23,12 @@ export default function Customers() {
       getCustomers().then(setRows);
     }, [])
   );
+
+  useEffect(() => {
+    return onSyncStateChange(() => {
+      getCustomers().then(setRows).catch(() => {});
+    });
+  }, []);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
