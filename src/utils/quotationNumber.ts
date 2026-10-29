@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { defaultTemplate } from '../services/settingsService';
+import { pullFromSupabase } from '../services/db';
 import { formatQuotationNumber } from './numbering';
 import type { QuotationTemplate } from '../types/settings';
 
@@ -82,6 +83,10 @@ async function nextSequence(t: QuotationTemplate, year: number): Promise<number>
 
 /** Consume and return the next document number using the configured template. */
 export async function nextQuotationNumber(): Promise<string> {
+  // Refresh shared quotations before allocating a number so this device sees
+  // the latest sequence already created by another synced device. Offline use
+  // still works because a failed pull falls back to local records/counter.
+  try { await pullFromSupabase(); } catch { /* use local sequence when offline */ }
   const t = await loadTemplate();
   const year = new Date().getFullYear();
   const seq = await nextSequence(t, year);
