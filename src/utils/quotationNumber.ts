@@ -45,7 +45,7 @@ async function highestLocalSequence(t: QuotationTemplate, year: number): Promise
       const number = String(row.quotation_number ?? '');
       if (!number.startsWith(expectedStart)) continue;
       const suffix = number.slice(expectedStart.length);
-      if (!/^\\d+$/.test(suffix)) continue;
+      if (!/^\d+$/.test(suffix)) continue;
       highest = Math.max(highest, Number(suffix) || 0);
     }
     return highest;
