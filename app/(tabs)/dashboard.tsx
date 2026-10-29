@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,7 +10,7 @@ import { useAuth } from '../../src/context/AuthContext';
 import { countCustomers, countNewCustomersThisMonth } from '../../src/services/customerService';
 import { getQuotations, getMonthSales } from '../../src/services/quotationService';
 import { formatINR } from '../../src/utils/currency';
-import { getSyncState, type SyncState } from '../../src/services/db';
+import { getSyncState, onSyncStateChange, type SyncState } from '../../src/services/db';
 import { getPendingPayments, type PendingPayment } from '../../src/services/paymentService';
 import { can } from '../../src/services/permissions';
 
@@ -35,6 +35,17 @@ export default function Dashboard() {
       })();
     }, [])
   );
+
+  const refreshDashboard = useCallback(async () => {
+    const [customers, newC, quotes, month] = await Promise.all([
+      countCustomers(), countNewCustomersThisMonth(), getQuotations(), getMonthSales(),
+    ]);
+    setStats({ customers, newC, quotations: quotes.length, monthSales: month });
+    setSync(await getSyncState());
+    setDues(await getPendingPayments());
+  }, []);
+
+  useEffect(() => onSyncStateChange(() => { refreshDashboard().catch(() => {}); }), [refreshDashboard]);
 
   const hour = new Date().getHours();
   const greet = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
