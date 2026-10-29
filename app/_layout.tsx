@@ -12,7 +12,7 @@ export default function RootLayout() {
   useEffect(() => {
     runDailyAutoBackup().catch(() => {});
     autoSyncTwoDevices().catch(() => {});
-    const timer = setInterval(() => { autoSyncTwoDevices().catch(() => {}); }, 60000);
+    const timer = setInterval(() => { autoSyncTwoDevices().catch(() => {}); }, 10000);
     const sub = AppState.addEventListener('change', (state) => { if (state === 'active') autoSyncTwoDevices().catch(() => {}); });
     return () => { clearInterval(timer); sub.remove(); };
   }, []);
