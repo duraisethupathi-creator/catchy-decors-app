@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +8,7 @@ import { colors } from '../../src/constants/colors';
 import { getQuotations } from '../../src/services/quotationService';
 import { formatINR, formatDate } from '../../src/utils/currency';
 import type { Quotation } from '../../src/types/quotation';
+import { onSyncStateChange } from '../../src/services/db';
 
 const FILTERS = ['All', 'Draft', 'Sent', 'Approved', 'Completed'] as const;
 
@@ -21,6 +22,12 @@ export default function Quotations() {
       getQuotations().then(setRows);
     }, [])
   );
+
+  useEffect(() => {
+    return onSyncStateChange(() => {
+      getQuotations().then(setRows).catch(() => {});
+    });
+  }, []);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
