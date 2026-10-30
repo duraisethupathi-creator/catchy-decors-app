@@ -12,6 +12,8 @@ export interface Measurement {
   fabric_area?: number;
   /** Optional curtain lining selection, kept separate from Main/Sheer and fabric name. */
   lining_type?: 'Blackout Lining' | 'Semi Lining';
+  /** Separate fabric description for the selected curtain lining. */
+  lining_fabric?: string;
   /** Manual curtain Part value. */
   part?: number;
   /** Measurement unit for blinds/mosquito net. */
