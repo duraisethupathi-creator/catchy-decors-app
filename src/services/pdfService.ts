@@ -132,8 +132,13 @@ export function buildQuotationHtml(
   const accent = template.accentColor || '#FF7A00';
   const tOpt = (v: string | undefined) => (v ?? '').trim() || '-';
   const sOpt = (v: string | undefined, fb: string) => ((v ?? '').trim() ? (v as string).trim() : fb);
-  const fabricCell = (it: { fabric_type?: string; fabric_area?: number }) =>
-    `${esc(tOpt(it.fabric_type))}${it.fabric_area ? ` · ${it.fabric_area} sq.ft` : ''}`;
+  const fabricCell = (it: { fabric_type?: string; fabric_area?: number; lining_type?: string; lining_fabric?: string }) => {
+    const main = (it.fabric_type ?? '').trim();
+    const lining = (it.lining_type ?? '').trim();
+    const liningFabric = (it.lining_fabric ?? '').trim();
+    const details = [main ? `Main: ${esc(main)}` : '', lining ? `Lining: ${esc(lining)}${liningFabric ? ` — ${esc(liningFabric)}` : ''}` : '', it.fabric_area ? `${it.fabric_area} sq.ft` : ''].filter(Boolean);
+    return details.length ? details.join('<br/>') : '-';
+  };
   const productStartCols = (template.showSerialColumn ? 1 : 0) + (template.showAreaColumn ? 1 : 0);
   // Other Charges is an independent four-column table. Keeping its colspan
   // tied to product-column toggles made the header/body widths drift.
