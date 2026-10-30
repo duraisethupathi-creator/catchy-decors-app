@@ -32,7 +32,7 @@ import {
 import { nextQuotationNumber, peekQuotationNumber } from '../../src/utils/quotationNumber';
 import { formatINR } from '../../src/utils/currency';
 import { numericInput } from '../../src/utils/validation';
-import { round2, calculateAccessories, calculateTotal } from '../../src/utils/calculations';
+import { round2, calculateAccessories, calculateCurtainQty, calculateTotal } from '../../src/utils/calculations';
 import type { Customer } from '../../src/types/customer';
 import type { Measurement, Accessory, OtherCharge } from '../../src/types/measurement';
 import type { MaterialReferencePhoto, Quotation } from '../../src/types/quotation';
@@ -56,6 +56,8 @@ export default function EditQuotation() {
   const [charges, setCharges] = useState<ChargesBundle>(emptyChargesBundle);
   const [saving, setSaving] = useState(false);
   const [referencePhotos, setReferencePhotos] = useState<MaterialReferencePhoto[]>([]);
+  const [showAddCurtain, setShowAddCurtain] = useState(false);
+  const [newCurtain, setNewCurtain] = useState({ area: '', part: '', width: '', height: '', fabric: '', lining: '', price: '' });
   const draftReady = useRef(false);
   const draftSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -122,18 +124,6 @@ export default function EditQuotation() {
   const effectiveCharges = useMemo(() => ({ ...charges, stitchingQty: String(curtainParts || '') }), [charges, curtainParts]);
   const bundle = useMemo(() => buildCharges(effectiveCharges), [effectiveCharges]);
   const grandTotal = computeGrandTotal(subtotal, accessoriesTotal, bundle.totals);
-  /* Requirement 5: fabric quantity that belongs in the Other Charges area. */
-  const liningItems = items.filter(i=>i.product_type==='curtains' && (i.fabric_type==='Blackout Lining'||i.fabric_type==='Semi Lining'));
-  const liningNote = liningItems.length ? liningItems.map(i=>`${i.area_name}: ${i.fabric_type} · ${i.quantity} mtr`).join(' | ') : '';
-  useEffect(()=>{
-    if(!liningNote)return;
-    setCharges(prev=>{
-      const desc=`Lining Fabric Total · ${liningNote}`;
-      if(prev.additionalDesc===desc)return prev;
-      return {...prev,additionalDesc:desc};
-    });
-  },[liningNote]);
-
   const fabricNote = (() => {
     const mtr = round2(items.filter((i) => i.product_type === 'curtains').reduce((s, i) => s + (i.quantity || 0), 0));
     const sqft = round2(items.reduce((s, i) => s + (i.fabric_area || 0), 0));
@@ -142,6 +132,29 @@ export default function EditQuotation() {
     if (sqft) parts.push(`fabric area ${sqft} sq.ft`);
     return parts.length ? `Fabric total: ${parts.join(' · ')}` : '';
   })();
+
+  function addCurtainToQuotation() {
+    if (!customer) return;
+    if (!newCurtain.area.trim() || Number(newCurtain.part) <= 0 || Number(newCurtain.width) <= 0 || Number(newCurtain.height) <= 0) {
+      toast('Enter Area, Part, Width and Height');
+      return;
+    }
+    const quantity = calculateCurtainQty(newCurtain.part, newCurtain.height);
+    const price = Number(newCurtain.price) || 0;
+    const item: Measurement = {
+      id: uid(), customer_id: customer.id, product_type: 'curtains',
+      area_name: newCurtain.area.trim(), type: 'Main',
+      fabric_type: newCurtain.fabric.trim(),
+      lining_type: (newCurtain.lining || undefined) as Measurement['lining_type'],
+      lining_fabric: '', part: Number(newCurtain.part),
+      width: Number(newCurtain.width), height: Number(newCurtain.height),
+      quantity, price, total: calculateTotal(quantity, price),
+    };
+    setItems(current => [...current, item]);
+    setNewCurtain({ area: '', part: '', width: '', height: '', fabric: '', lining: '', price: '' });
+    setShowAddCurtain(false);
+    toast('Curtain added to quotation');
+  }
 
   function updExtra(id: string, patch: Partial<ExtraChargeRow>) {
     setCharges((c) => ({ ...c, extras: c.extras.map((r) => (r.id === id ? { ...r, ...patch } : r)) }));
@@ -328,13 +341,37 @@ export default function EditQuotation() {
           const unitLabel = colLabel === 'Qty' ? `Qty (${def.qtyUnit})` : colLabel;
           return (
             <View key={it.id} style={styles.lineRow}>
-              <Text style={styles.lineText}>{i + 1}. {it.area_name} — {def.name}{it.product_type==='curtains'&&it.fabric_type ? ` with ${it.fabric_type}` : ''} · {unitLabel} {it.quantity}</Text>
+              <Text style={styles.lineText}>{i + 1}. {it.area_name} — {def.name}{it.product_type==='curtains'&&it.fabric_type ? ` · Fabric: ${it.fabric_type}` : ''}{it.product_type==='curtains'&&it.lining_type ? ` · ${it.lining_type}${it.lining_fabric ? `: ${it.lining_fabric}` : ''}` : ''} · {unitLabel} {it.quantity}</Text>
               <Text style={styles.lineTotal}>{formatINR(it.total, false)}</Text>
             </View>
           );
         })
       )}
 
+
+      <Button title={showAddCurtain ? 'Close Add Curtains' : '+ Add Curtains'} icon="add" variant="accent" onPress={() => setShowAddCurtain(v => !v)} style={{ marginTop: 8 }} />
+      {showAddCurtain ? (
+        <Card style={{ marginTop: 10 }}>
+          <Text style={styles.rowTitle}>New Main Curtain</Text>
+          <Field label="Area Name" value={newCurtain.area} onChangeText={v => setNewCurtain(s => ({ ...s, area: v }))} placeholder="e.g. Hall Window" />
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <View style={{ flex: 1 }}><Field label="Part" value={newCurtain.part} onChangeText={v => setNewCurtain(s => ({ ...s, part: numericInput(v) }))} keyboardType="numeric" /></View>
+            <View style={{ flex: 1 }}><Field label="Width (in)" value={newCurtain.width} onChangeText={v => setNewCurtain(s => ({ ...s, width: numericInput(v) }))} keyboardType="numeric" /></View>
+            <View style={{ flex: 1 }}><Field label="Height" value={newCurtain.height} onChangeText={v => setNewCurtain(s => ({ ...s, height: numericInput(v) }))} keyboardType="numeric" /></View>
+          </View>
+          <Field label="Main Curtains Fabric Details" value={newCurtain.fabric} onChangeText={v => setNewCurtain(s => ({ ...s, fabric: v }))} placeholder="Enter main fabric details" />
+          <Field label="Curtain Price (₹ / mtr)" value={newCurtain.price} onChangeText={v => setNewCurtain(s => ({ ...s, price: numericInput(v) }))} keyboardType="numeric" />
+          <Text style={styles.formulaNote}>Optional lining</Text>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {(['', 'Blackout Lining', 'Semi Lining'] as const).map(value => (
+              <TouchableOpacity key={value || 'none'} onPress={() => setNewCurtain(s => ({ ...s, lining: value }))} style={{ padding: 9, borderRadius: 10, backgroundColor: newCurtain.lining === value ? colors.navy : colors.chipBg }}>
+                <Text style={{ color: newCurtain.lining === value ? '#fff' : colors.navy, fontWeight: '700', fontSize: 11 }}>{value || 'No Lining'}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Button title="Add Curtain to Quotation" icon="checkmark" variant="accent" onPress={addCurtainToQuotation} style={{ marginTop: 12 }} />
+        </Card>
+      ) : null}
 
       <SectionTitle>
         <Text style={{ fontSize: 16, fontWeight: '800', color: colors.text }}>Material Reference Photos (Optional)</Text>
