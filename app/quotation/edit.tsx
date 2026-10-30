@@ -57,7 +57,7 @@ export default function EditQuotation() {
   const [saving, setSaving] = useState(false);
   const [referencePhotos, setReferencePhotos] = useState<MaterialReferencePhoto[]>([]);
   const [showAddCurtain, setShowAddCurtain] = useState(false);
-  const [newCurtain, setNewCurtain] = useState({ area: '', part: '', width: '', height: '', fabric: '', lining: '', price: '' });
+  const [newCurtain, setNewCurtain] = useState({ area: '', part: '', width: '', height: '', fabric: '', lining: '', liningFabric: '', price: '' });
   const draftReady = useRef(false);
   const draftSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -146,12 +146,12 @@ export default function EditQuotation() {
       area_name: newCurtain.area.trim(), type: 'Main',
       fabric_type: newCurtain.fabric.trim(),
       lining_type: (newCurtain.lining || undefined) as Measurement['lining_type'],
-      lining_fabric: '', part: Number(newCurtain.part),
+      lining_fabric: newCurtain.liningFabric.trim(), part: Number(newCurtain.part),
       width: Number(newCurtain.width), height: Number(newCurtain.height),
       quantity, price, total: calculateTotal(quantity, price),
     };
     setItems(current => [...current, item]);
-    setNewCurtain({ area: '', part: '', width: '', height: '', fabric: '', lining: '', price: '' });
+    setNewCurtain({ area: '', part: '', width: '', height: '', fabric: '', lining: '', liningFabric: '', price: '' });
     setShowAddCurtain(false);
     toast('Curtain added to quotation');
   }
@@ -362,6 +362,7 @@ export default function EditQuotation() {
           <Field label="Main Curtains Fabric Details" value={newCurtain.fabric} onChangeText={v => setNewCurtain(s => ({ ...s, fabric: v }))} placeholder="Enter main fabric details" />
           <Field label="Curtain Price (₹ / mtr)" value={newCurtain.price} onChangeText={v => setNewCurtain(s => ({ ...s, price: numericInput(v) }))} keyboardType="numeric" />
           <Text style={styles.formulaNote}>Optional lining</Text>
+          {newCurtain.lining ? <Field label={newCurtain.lining + " Fabric Details"} value={newCurtain.liningFabric} onChangeText={v => setNewCurtain(s => ({ ...s, liningFabric: v }))} placeholder="Enter separate lining fabric details" /> : null}
           <View style={{ flexDirection: 'row', gap: 8 }}>
             {(['', 'Blackout Lining', 'Semi Lining'] as const).map(value => (
               <TouchableOpacity key={value || 'none'} onPress={() => setNewCurtain(s => ({ ...s, lining: value }))} style={{ padding: 9, borderRadius: 10, backgroundColor: newCurtain.lining === value ? colors.navy : colors.chipBg }}>
