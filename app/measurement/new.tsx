@@ -38,6 +38,8 @@ interface Row {
   /** Fabric chosen for this item (type + area). */
   fabricType: string;
   fabricArea: string;
+  liningType: '' | 'Blackout Lining' | 'Semi Lining';
+  liningFabric: string;
   /** Wallpaper: user-controlled bonus-roll toggle (enabled when D ≥ 2) */
   wallBonusRoll: boolean;
   part: string;
@@ -86,6 +88,8 @@ export default function Measurements() {
               price: String(d.price || ''),
               fabricType: d.fabric_type ?? '',
               fabricArea: d.fabric_area ? String(d.fabric_area) : '',
+              liningType: d.lining_type ?? '',
+              liningFabric: d.lining_fabric ?? '',
               wallBonusRoll: false,
               part: d.part ? String(d.part) : '',
               measurementUnit: d.measurement_unit ?? 'inch',
@@ -104,7 +108,7 @@ export default function Measurements() {
     const id = uid();
     setRows((r) => [
       ...r,
-      { id, product, area: '', type: product==='curtains' ? 'Main' : (def.typeOptions[0] ?? ''), width: '', height: '', price: '', fabricType: '', fabricArea: '', wallBonusRoll: false, part: '', measurementUnit: 'inch' },
+      { id, product, area: '', type: product==='curtains' ? 'Main' : (def.typeOptions[0] ?? ''), width: '', height: '', price: '', fabricType: '', fabricArea: '', liningType: '', liningFabric: '', wallBonusRoll: false, part: '', measurementUnit: 'inch' },
     ]);
     setActiveId(id);
     setSelectedProducts((p) => (p.includes(product) ? p : [...p, product]));
@@ -193,7 +197,8 @@ export default function Measurements() {
         price: Number(r.price) || 0,
         fabric_type: r.fabricType.trim(),
         fabric_area: 0,
-        lining_type: r.fabricArea || undefined,
+        lining_type: r.liningType || undefined,
+        lining_fabric: r.liningFabric.trim(),
         total: calculateTotal(q, r.price),
       };
     });
@@ -256,8 +261,9 @@ export default function Measurements() {
           {(row.product==='blinds'||row.product==='mosquito_net')?<><Text style={styles.miniLabel}>Measurement Unit</Text><ChipGroup options={['inch','mm']} selected={row.measurementUnit} onSelect={v=>updateRow(row.id,{measurementUnit:v as 'inch'|'mm'})}/></>:null}
           {row.product==='curtains'?<Field label="Part" value={row.part} onChangeText={t=>updateRow(row.id,{part:numericInput(t)})} keyboardType="numeric" placeholder="0"/>:null}
           <View style={styles.halfRow}><View style={{flex:1,marginRight:8}}><Field label={def.formula==='accessories'?'Curtain Width (in)':def.formula==='linear_meter'?'Material (mtr)':'Width (in)'} value={row.width} onChangeText={t=>updateRow(row.id,{width:numericInput(t)})} keyboardType="numeric" placeholder="0"/></View>{def.usesHeight?<View style={{flex:1}}><Field label="Height" value={row.height} onChangeText={t=>updateRow(row.id,{height:numericInput(t)})} keyboardType="numeric" placeholder="0"/></View>:<View style={{flex:1}}/>}</View>
-          {row.product==='curtains'&&row.type!=='Sheer'?<><View style={styles.comboHead}><View><Text style={styles.comboTitle}>Smart Curtain Combo</Text><Text style={styles.comboSub}>Main size → optional layers auto copy</Text></View><Ionicons name="sparkles" size={20} color={colors.orange}/></View><View style={{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:8}}><TouchableOpacity style={styles.layerChip} onPress={()=>addCurtainLayer('Sheer')}><Text style={styles.layerChipText}>+ Sheer · Copy Size</Text></TouchableOpacity>{(['Blackout Lining','Semi Lining'] as const).map(k=>{const on=row.fabricType===k;return <TouchableOpacity key={k} style={[styles.layerChip,on&&{backgroundColor:colors.navy}]} onPress={()=>updateRow(row.id,{fabricType:on?'':k})}><Text style={[styles.layerChipText,on&&{color:'#fff'}]}>{on?'✓ ':''}{k}</Text></TouchableOpacity>})}</View></>:null}
-          <Field label="Fabric Details" value={row.fabricType} onChangeText={t=>updateRow(row.id,{fabricType:t})} placeholder="e.g. Cotton, Blackout"/>
+          {row.product==='curtains'&&row.type!=='Sheer'?<><View style={styles.comboHead}><View><Text style={styles.comboTitle}>Smart Curtain Combo</Text><Text style={styles.comboSub}>Main size → optional layers auto copy</Text></View><Ionicons name="sparkles" size={20} color={colors.orange}/></View><View style={{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:8}}><TouchableOpacity style={styles.layerChip} onPress={()=>addCurtainLayer('Sheer')}><Text style={styles.layerChipText}>+ Sheer · Copy Size</Text></TouchableOpacity>{(['Blackout Lining','Semi Lining'] as const).map(k=>{const on=row.liningType===k;return <TouchableOpacity key={k} style={[styles.layerChip,on&&{backgroundColor:colors.navy}]} onPress={()=>updateRow(row.id,{liningType:on?'':k})}><Text style={[styles.layerChipText,on&&{color:'#fff'}]}>{on?'✓ ':''}{k}</Text></TouchableOpacity>})}</View></>:null}
+          <Field label="Main Curtains Fabric Details" value={row.fabricType} onChangeText={t=>updateRow(row.id,{fabricType:t})} placeholder="Enter main curtain fabric details"/>
+          {row.product==='curtains' && row.liningType ? <Field label={row.liningType + " Fabric Details"} value={row.liningFabric} onChangeText={t=>updateRow(row.id,{liningFabric:t})} placeholder="Enter separate lining fabric details"/> : null}
           <Field label="Price (₹)" value={row.price} onChangeText={t=>updateRow(row.id,{price:numericInput(t)})} keyboardType="numeric" placeholder="0"/>
           <View style={styles.preview}><Text style={styles.previewLabel}>LIVE CALCULATION</Text><View style={{flexDirection:'row',justifyContent:'space-between',marginTop:6}}><Text style={styles.previewQty}>Quantity ({def.qtyUnit}): <Text style={styles.previewVal}>{qty}</Text></Text><Text style={styles.previewQty}>Total: <Text style={styles.previewVal}>{formatINR(tot)}</Text></Text></View></View>
           <View style={{flexDirection:'row',gap:8,marginTop:12}}><Button title="Delete" icon="trash-outline" variant="outline" style={{flex:1}} onPress={()=>removeRow(row.id)}/><Button title="Add to List" icon="add" variant="accent" style={{flex:2}} onPress={()=>{setActiveId('');toast('Item added · Auto saved');}}/></View>
