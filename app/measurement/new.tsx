@@ -35,6 +35,7 @@ interface Row {
   width: string;
   height: string;
   price: string;
+  manualFabricMtr: string;
   /** Fabric chosen for this item (type + area). */
   fabricType: string;
   fabricArea: string;
@@ -86,6 +87,7 @@ export default function Measurements() {
               width: String(d.width || ''),
               height: String(d.height || ''),
               price: String(d.price || ''),
+              manualFabricMtr: d.product_type === 'blinds' && (d.type ?? '').toLowerCase() === 'roman' ? String(d.quantity || '') : '',
               fabricType: d.fabric_type ?? '',
               fabricArea: d.fabric_area ? String(d.fabric_area) : '',
               liningType: d.lining_type ?? '',
@@ -108,7 +110,7 @@ export default function Measurements() {
     const id = uid();
     setRows((r) => [
       ...r,
-      { id, product, area: '', type: product==='curtains' ? 'Main' : (def.typeOptions[0] ?? ''), width: '', height: '', price: '', fabricType: '', fabricArea: '', liningType: '', liningFabric: '', wallBonusRoll: false, part: '', measurementUnit: 'inch' },
+      { id, product, area: '', type: product==='curtains' ? 'Main' : (def.typeOptions[0] ?? ''), width: '', height: '', price: '', manualFabricMtr: '', fabricType: '', fabricArea: '', liningType: '', liningFabric: '', wallBonusRoll: false, part: '', measurementUnit: 'inch' },
     ]);
     setActiveId(id);
     setSelectedProducts((p) => (p.includes(product) ? p : [...p, product]));
@@ -155,9 +157,7 @@ export default function Measurements() {
         return calculateCurtainQty(row.part, row.height);
       case 'square_feet':
         if (row.product === 'blinds' && row.type.toLowerCase() === 'roman') {
-          const width = Number(row.width) || 0;
-          const height = Number(row.height) || 0;
-          return width > 0 && height > 0 ? Math.round((width * height / (48 * 39)) * 100) / 100 : 0;
+          return Math.max(0, Number(row.manualFabricMtr) || 0);
         }
         return (row.product === 'blinds' || row.product === 'mosquito_net') && row.measurementUnit === 'mm'
           ? calculateSquareFeetMm(row.width, row.height)
@@ -229,7 +229,7 @@ export default function Measurements() {
     }
     const missing = rows.find((r) => !r.area.trim());
     if (missing) { toast('Every row needs an Area Name'); return; }
-    const invalid = rows.find((r) => Number(r.width) <= 0 || (getProduct(r.product).usesHeight && Number(r.height) <= 0) || (r.product === 'curtains' && Number(r.part) <= 0));
+    const invalid = rows.find((r) => Number(r.width) <= 0 || (getProduct(r.product).usesHeight && Number(r.height) <= 0) || (r.product === 'curtains' && Number(r.part) <= 0) || (r.product === 'blinds' && r.type.toLowerCase() === 'roman' && Number(r.manualFabricMtr) <= 0));
     if (invalid) { toast('Enter valid Width, Height and Curtain Part values'); return; }
     await persistDraft();
     router.push(`/quotation/new?customerId=${customerId}`);
@@ -267,10 +267,10 @@ export default function Measurements() {
           {row.product==='curtains'?<Field label="Part" value={row.part} onChangeText={t=>updateRow(row.id,{part:numericInput(t)})} keyboardType="numeric" placeholder="0"/>:null}
           <View style={styles.halfRow}><View style={{flex:1,marginRight:8}}><Field label={def.formula==='accessories'?'Curtain Width (in)':def.formula==='linear_meter'?'Material (mtr)':'Width (in)'} value={row.width} onChangeText={t=>updateRow(row.id,{width:numericInput(t)})} keyboardType="numeric" placeholder="0"/></View>{def.usesHeight?<View style={{flex:1}}><Field label="Height" value={row.height} onChangeText={t=>updateRow(row.id,{height:numericInput(t)})} keyboardType="numeric" placeholder="0"/></View>:<View style={{flex:1}}/>}</View>
           {row.product==='curtains'&&row.type!=='Sheer'?<><View style={styles.comboHead}><View><Text style={styles.comboTitle}>Smart Curtain Combo</Text><Text style={styles.comboSub}>Main size → optional layers auto copy</Text></View><Ionicons name="sparkles" size={20} color={colors.orange}/></View><View style={{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:8}}><TouchableOpacity style={styles.layerChip} onPress={()=>addCurtainLayer('Sheer')}><Text style={styles.layerChipText}>+ Sheer · Copy Size</Text></TouchableOpacity>{(['Blackout Lining','Semi Lining'] as const).map(k=>{const on=row.liningType===k;return <TouchableOpacity key={k} style={[styles.layerChip,on&&{backgroundColor:colors.navy}]} onPress={()=>updateRow(row.id,{liningType:on?'':k})}><Text style={[styles.layerChipText,on&&{color:'#fff'}]}>{on?'✓ ':''}{k}</Text></TouchableOpacity>})}</View></>:null}
-          {row.product === 'blinds' && row.type.toLowerCase() === 'roman' ? <Field label="Fabric Details" value={row.fabricType} onChangeText={t=>updateRow(row.id,{fabricType:t})} placeholder="Enter Roman blind fabric details"/> : row.product === 'curtains' ? <Field label="Main Curtains Fabric Details" value={row.fabricType} onChangeText={t=>updateRow(row.id,{fabricType:t})} placeholder="Enter main curtain fabric details"/> : null}
+          {row.product === 'blinds' && row.type.toLowerCase() === 'roman' ? <><Field label="Fabric Required (mtr)" value={row.manualFabricMtr} onChangeText={t=>updateRow(row.id,{manualFabricMtr:numericInput(t)})} keyboardType="numeric" placeholder="Enter fabric metres manually"/><Field label="Fabric Details" value={row.fabricType} onChangeText={t=>updateRow(row.id,{fabricType:t})} placeholder="Enter Roman blind fabric details"/></> : row.product === 'curtains' ? <Field label="Main Curtains Fabric Details" value={row.fabricType} onChangeText={t=>updateRow(row.id,{fabricType:t})} placeholder="Enter main curtain fabric details"/> : null}
           {row.product==='curtains' && row.liningType ? <Field label={row.liningType + " Fabric Details"} value={row.liningFabric} onChangeText={t=>updateRow(row.id,{liningFabric:t})} placeholder="Enter separate lining fabric details"/> : null}
           <Field label="Price (₹)" value={row.price} onChangeText={t=>updateRow(row.id,{price:numericInput(t)})} keyboardType="numeric" placeholder="0"/>
-          <View style={styles.preview}><Text style={styles.previewLabel}>LIVE CALCULATION</Text><View style={{flexDirection:'row',justifyContent:'space-between',marginTop:6}}><Text style={styles.previewQty}>Quantity ({row.product === 'blinds' && row.type.toLowerCase() === 'roman' ? 'mtr' : def.qtyUnit}): <Text style={styles.previewVal}>{qty}</Text></Text><Text style={styles.previewQty}>Total: <Text style={styles.previewVal}>{formatINR(tot)}</Text></Text></View></View>
+          <View style={styles.preview}><Text style={styles.previewLabel}>{row.product === 'blinds' && row.type.toLowerCase() === 'roman' ? 'MANUAL FABRIC QUANTITY' : 'LIVE CALCULATION'}</Text><View style={{flexDirection:'row',justifyContent:'space-between',marginTop:6}}><Text style={styles.previewQty}>Quantity ({row.product === 'blinds' && row.type.toLowerCase() === 'roman' ? 'mtr' : def.qtyUnit}): <Text style={styles.previewVal}>{qty}</Text></Text><Text style={styles.previewQty}>Total: <Text style={styles.previewVal}>{formatINR(tot)}</Text></Text></View></View>
           <View style={{flexDirection:'row',gap:8,marginTop:12}}><Button title="Delete" icon="trash-outline" variant="outline" style={{flex:1}} onPress={()=>removeRow(row.id)}/><Button title="Add to List" icon="add" variant="accent" style={{flex:2}} onPress={()=>{setActiveId('');toast('Item added · Auto saved');}}/></View>
         </Card>;
       })():null}
