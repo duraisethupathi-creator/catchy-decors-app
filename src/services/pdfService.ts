@@ -136,7 +136,7 @@ export function buildQuotationHtml(
     const main = (it.fabric_type ?? '').trim();
     const lining = (it.lining_type ?? '').trim();
     const liningFabric = (it.lining_fabric ?? '').trim();
-    const details = [main ? `Main: ${esc(main)}` : '', lining ? `Lining: ${esc(lining)}${liningFabric ? ` — ${esc(liningFabric)}` : ''}` : '', it.fabric_area ? `${it.fabric_area} sq.ft` : ''].filter(Boolean);
+    const details = [main ? (it.product_type === 'blinds' ? esc(main) : `Main: ${esc(main)}`) : '', lining ? `Lining: ${esc(lining)}${liningFabric ? ` — ${esc(liningFabric)}` : ''}` : '', it.fabric_area ? `${it.fabric_area} sq.ft` : ''].filter(Boolean);
     return details.length ? details.join('<br/>') : '-';
   };
   const productStartCols = (template.showSerialColumn ? 1 : 0) + (template.showAreaColumn ? 1 : 0);
@@ -153,7 +153,7 @@ export function buildQuotationHtml(
   if (template.showFabricColumn) head.push('Fabric Details');
   if (template.showWidthColumn) head.push('Width');
   if (template.showHeightColumn) head.push('Height');
-  head.push(quantityColumnLabel('curtains'));
+  head.push('Qty (mtr / sq.ft)');
   head.push('Price');
   head.push('Total');
   const cols = head.length;
