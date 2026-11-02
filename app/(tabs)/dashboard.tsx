@@ -64,6 +64,7 @@ export default function Dashboard() {
   const actions = [
     { icon: 'person-add', label: 'Add Customer', route: '/customer/new', tint: colors.navy },
     { icon: 'resize', label: 'New Measurement', route: '/customer/new?mode=measurement', tint: colors.orange },
+    { icon: 'calculator', label: 'Quick Price Calculator', route: '/quick-calculator', tint: '#0B8A78' },
     { icon: 'document', label: 'Create Quotation', route: '/customer/new?mode=quotation', tint: colors.red },
     { icon: 'construct', label: 'Service Bill', route: '/service/new', tint: '#0E9A4C' },
     ...(adminView ? [{ icon: 'wallet', label: 'Expenses & Profit', route: '/expense', tint: '#7A4DB3' }] : []),
