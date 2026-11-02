@@ -67,7 +67,7 @@ export default function QuickCalculator() {
         {field(row.product === 'accessories' ? 'Width (inch)' : row.product === 'cushion' ? 'Fabric Quantity (mtr)' : 'Width', row.width, v => patch({ width: v }))}
         {product.usesHeight && !isRoman && field('Height', row.height, v => patch({ height: v }))}
         {isRoman && field('Fabric Required (mtr) — Manual', row.romanMtr, v => patch({ romanMtr: v }), 'Enter metres manually')}
-        {field('Rate (₹ / ' + (isRoman ? 'mtr' : row.product === 'curtains' || row.product === 'cushion' ? 'mtr' : row.product === 'accessories' ? 'R.ft' : 'sq.ft') + ')', row.rate, v => patch({ rate: v })}
+        {field('Rate (₹ / ' + (isRoman ? 'mtr' : row.product === 'curtains' || row.product === 'cushion' ? 'mtr' : row.product === 'accessories' ? 'R.ft' : 'sq.ft') + ')', row.rate, v => patch({ rate: v }))}
 
         <View style={styles.liveBox}>
           <Text style={styles.liveLabel}>LIVE ESTIMATE</Text>
