@@ -43,7 +43,9 @@ export default function NewCustomer() {
   }, []);
 
   async function persist(): Promise<Customer | null> {
-    const errs = validateCustomer(name, phone);
+    const errs = mode === 'quotation'
+      ? (!name.trim() ? { name: 'Customer name is required' } : (phone.trim() && !isValidIndianMobile(phone) ? { phone: 'Enter a valid Indian mobile number' } : {}))
+      : validateCustomer(name, phone);
     setErrors(errs);
     if (Object.keys(errs).length) {
       toast('Please fix the highlighted fields');
@@ -85,10 +87,10 @@ export default function NewCustomer() {
       <Card>
         <Field label="Customer Name *" value={name} onChangeText={setName} placeholder="e.g. Ramesh Kumar" error={errors.name} />
         <Field
-          label="Phone Number *"
+          label={mode === 'quotation' ? "Phone Number (Optional)" : "Phone Number *"}
           value={phone}
           onChangeText={(t) => setPhone(t.replace(/[^0-9+]/g, '').slice(0, 13))}
-          placeholder="10-digit Indian mobile"
+          placeholder={mode === 'quotation' ? "Optional — enter if available" : "10-digit Indian mobile"}
           keyboardType="phone-pad"
           error={errors.phone}
         />
@@ -105,7 +107,7 @@ export default function NewCustomer() {
 
       <View style={styles.noteRow}>
         <Ionicons name="information-circle" size={16} color={colors.textMuted} />
-        <Text style={styles.note}>Indian mobile numbers starting 6-9 are accepted (10 digits).</Text>
+        <Text style={styles.note}>For quotations, phone number is optional. If entered, use a valid 10-digit Indian mobile number.</Text>
       </View>
     </ScrollView>
   );
