@@ -50,6 +50,9 @@ interface Row {
 
 const uid = () => Math.random().toString(36).slice(2);
 
+// These mosquito-net types are sold by measured square feet.
+const isMosquitoSqftType = (type: string) => ['DOOR NET', 'FIXED FRAME'].includes(type.trim().toUpperCase());
+
 export default function Measurements() {
   const params = useLocalSearchParams<{ customerId?: string; fresh?: string }>();
   const [customerId, setCustomerId] = useState<string>('');
@@ -158,7 +161,14 @@ export default function Measurements() {
       case 'curtain':
         return calculateCurtainQty(row.part, row.height);
       case 'square_feet':
-        if (row.product === 'mosquito_net') return Math.max(0, Number(row.manualQuantity) || 0);
+        if (row.product === 'mosquito_net') {
+          if (!isMosquitoSqftType(row.type)) return Math.max(0, Number(row.manualQuantity) || 0);
+          const measured = row.measurementUnit === 'mm'
+            ? calculateSquareFeetMm(row.width, row.height)
+            : calculateSquareFeet(row.width, row.height);
+          // Preserve legacy manual quantities on older saved rows until dimensions are entered.
+          return measured > 0 ? measured : Math.max(0, Number(row.manualQuantity) || 0);
+        }
         if (row.product === 'blinds' && row.type.toLowerCase() === 'roman') {
           return Math.max(0, Number(row.manualFabricMtr) || 0);
         }
@@ -232,8 +242,17 @@ export default function Measurements() {
     }
     const missing = rows.find((r) => !r.area.trim());
     if (missing) { toast('Every row needs an Area Name'); return; }
-    const invalid = rows.find((r) => (r.product === 'mosquito_net' ? Number(r.manualQuantity) <= 0 : Number(r.width) <= 0 || (getProduct(r.product).usesHeight && Number(r.height) <= 0)) || (r.product === 'curtains' && Number(r.part) <= 0) || (r.product === 'blinds' && r.type.toLowerCase() === 'roman' && Number(r.manualFabricMtr) <= 0));
-    if (invalid) { toast('Enter valid Width, Height and Curtain Part values'); return; }
+    const invalid = rows.find((r) => {
+      if (r.product === 'mosquito_net') {
+        return isMosquitoSqftType(r.type)
+          ? Number(r.width) <= 0 || Number(r.height) <= 0
+          : Number(r.manualQuantity) <= 0;
+      }
+      return Number(r.width) <= 0 || (getProduct(r.product).usesHeight && Number(r.height) <= 0)
+        || (r.product === 'curtains' && Number(r.part) <= 0)
+        || (r.product === 'blinds' && r.type.toLowerCase() === 'roman' && Number(r.manualFabricMtr) <= 0);
+    });
+    if (invalid) { toast('Enter valid mosquito net quantity or Width / Height values'); return; }
     await persistDraft();
     router.push(`/quotation/new?customerId=${customerId}`);
   }
@@ -266,14 +285,16 @@ export default function Measurements() {
           <View style={styles.rowHead}><Text style={styles.rowTitle}>Add {def.name}</Text><Text style={styles.autoSave}>{draftSaved?'✓ Auto saved':'Saving…'}</Text></View>
           <Field label="Area Name" value={row.area} onChangeText={t=>updateRow(row.id,{area:t})} placeholder="e.g. Living Room Window 1"/>
           {row.product==='curtains'?<><Text style={styles.miniLabel}>Curtain Layer</Text><ChipGroup options={['Main','Sheer']} selected={row.type==='Sheer'?'Sheer':'Main'} onSelect={v=>{if(v==='Sheer'){addCurtainLayer('Sheer');}else{updateRow(row.id,{type:'Main'});}}}/></>:<><Text style={styles.miniLabel}>{def.typeLabel}</Text><ChipGroup options={def.typeOptions} selected={row.type} onSelect={v=>updateRow(row.id,{type:v})}/></>}
-          {row.product==='blinds'?<><Text style={styles.miniLabel}>Measurement Unit</Text><ChipGroup options={['inch','mm']} selected={row.measurementUnit} onSelect={v=>updateRow(row.id,{measurementUnit:v as 'inch'|'mm'})}/></>:null}
+          {(row.product==='blinds' || (row.product==='mosquito_net' && isMosquitoSqftType(row.type)))?<><Text style={styles.miniLabel}>Measurement Unit</Text><ChipGroup options={['inch','mm']} selected={row.measurementUnit} onSelect={v=>updateRow(row.id,{measurementUnit:v as 'inch'|'mm'})}/></>:null}
           {row.product==='curtains'?<Field label="Part" value={row.part} onChangeText={t=>updateRow(row.id,{part:numericInput(t)})} keyboardType="numeric" placeholder="0"/>:null}
-          {row.product==='mosquito_net' ? <Field label="Quantity / Calculation (Manual)" value={row.manualQuantity} onChangeText={t=>updateRow(row.id,{manualQuantity:numericInput(t)})} keyboardType="numeric" placeholder="Enter quantity manually"/> :           <View style={styles.halfRow}><View style={{flex:1,marginRight:8}}><Field label={def.formula==='accessories'?'Curtain Width (in)':def.formula==='linear_meter'?'Material (mtr)':'Width (in)'} value={row.width} onChangeText={t=>updateRow(row.id,{width:numericInput(t)})} keyboardType="numeric" placeholder="0"/></View>{def.usesHeight?<View style={{flex:1}}><Field label="Height" value={row.height} onChangeText={t=>updateRow(row.id,{height:numericInput(t)})} keyboardType="numeric" placeholder="0"/></View>:<View style={{flex:1}}/>}</View>}
+          {row.product==='mosquito_net' && !isMosquitoSqftType(row.type)
+            ? <Field label="Quantity (Manual)" value={row.manualQuantity} onChangeText={t=>updateRow(row.id,{manualQuantity:numericInput(t)})} keyboardType="numeric" placeholder="Enter quantity manually"/>
+            : <View style={styles.halfRow}><View style={{flex:1,marginRight:8}}><Field label={row.product==='mosquito_net' ? `Width (${row.measurementUnit})` : def.formula==='accessories'?'Curtain Width (in)':def.formula==='linear_meter'?'Material (mtr)':'Width (in)'} value={row.width} onChangeText={t=>updateRow(row.id,{width:numericInput(t)})} keyboardType="numeric" placeholder="0"/></View>{def.usesHeight?<View style={{flex:1}}><Field label={`Height${row.product==='mosquito_net' ? ` (${row.measurementUnit})` : ''}`} value={row.height} onChangeText={t=>updateRow(row.id,{height:numericInput(t)})} keyboardType="numeric" placeholder="0"/></View>:<View style={{flex:1}}/>}</View>}
           {row.product==='curtains'&&row.type!=='Sheer'?<><View style={styles.comboHead}><View><Text style={styles.comboTitle}>Smart Curtain Combo</Text><Text style={styles.comboSub}>Main size → optional layers auto copy</Text></View><Ionicons name="sparkles" size={20} color={colors.orange}/></View><View style={{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:8}}><TouchableOpacity style={styles.layerChip} onPress={()=>addCurtainLayer('Sheer')}><Text style={styles.layerChipText}>+ Sheer · Copy Size</Text></TouchableOpacity>{(['Blackout Lining','Semi Lining'] as const).map(k=>{const on=row.liningType===k;return <TouchableOpacity key={k} style={[styles.layerChip,on&&{backgroundColor:colors.navy}]} onPress={()=>updateRow(row.id,{liningType:on?'':k})}><Text style={[styles.layerChipText,on&&{color:'#fff'}]}>{on?'✓ ':''}{k}</Text></TouchableOpacity>})}</View></>:null}
           {row.product === 'blinds' && row.type.toLowerCase() === 'roman' ? <><Field label="Fabric Required (mtr)" value={row.manualFabricMtr} onChangeText={t=>updateRow(row.id,{manualFabricMtr:numericInput(t)})} keyboardType="numeric" placeholder="Enter fabric metres manually"/><Field label="Fabric Details" value={row.fabricType} onChangeText={t=>updateRow(row.id,{fabricType:t})} placeholder="Enter Roman blind fabric details"/></> : row.product === 'curtains' ? <Field label="Main Curtains Fabric Details" value={row.fabricType} onChangeText={t=>updateRow(row.id,{fabricType:t})} placeholder="Enter main curtain fabric details"/> : null}
           {row.product==='curtains' && row.liningType ? <Field label={row.liningType + " Fabric Details"} value={row.liningFabric} onChangeText={t=>updateRow(row.id,{liningFabric:t})} placeholder="Enter separate lining fabric details"/> : null}
           <Field label="Price (₹)" value={row.price} onChangeText={t=>updateRow(row.id,{price:numericInput(t)})} keyboardType="numeric" placeholder="0"/>
-          <View style={styles.preview}><Text style={styles.previewLabel}>{row.product === 'mosquito_net' ? 'MANUAL QUANTITY' : row.product === 'blinds' && row.type.toLowerCase() === 'roman' ? 'MANUAL FABRIC QUANTITY' : 'LIVE CALCULATION'}</Text><View style={{flexDirection:'row',justifyContent:'space-between',marginTop:6}}><Text style={styles.previewQty}>Quantity ({row.product === 'blinds' && row.type.toLowerCase() === 'roman' ? 'mtr' : def.qtyUnit}): <Text style={styles.previewVal}>{qty}</Text></Text><Text style={styles.previewQty}>Total: <Text style={styles.previewVal}>{formatINR(tot)}</Text></Text></View></View>
+          <View style={styles.preview}><Text style={styles.previewLabel}>{row.product === 'mosquito_net' ? (isMosquitoSqftType(row.type) ? 'SQUARE FEET CALCULATION' : 'MANUAL QUANTITY') : row.product === 'blinds' && row.type.toLowerCase() === 'roman' ? 'MANUAL FABRIC QUANTITY' : 'LIVE CALCULATION'}</Text><View style={{flexDirection:'row',justifyContent:'space-between',marginTop:6}}><Text style={styles.previewQty}>Quantity ({row.product === 'blinds' && row.type.toLowerCase() === 'roman' ? 'mtr' : def.qtyUnit}): <Text style={styles.previewVal}>{qty}</Text></Text><Text style={styles.previewQty}>Total: <Text style={styles.previewVal}>{formatINR(tot)}</Text></Text></View></View>
           <View style={{flexDirection:'row',gap:8,marginTop:12}}><Button title="Delete" icon="trash-outline" variant="outline" style={{flex:1}} onPress={()=>removeRow(row.id)}/><Button title="Add to List" icon="add" variant="accent" style={{flex:2}} onPress={()=>{setActiveId('');toast('Item added · Auto saved');}}/></View>
         </Card>;
       })():null}
