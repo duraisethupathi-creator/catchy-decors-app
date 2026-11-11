@@ -59,6 +59,20 @@ const uid = () => Math.random().toString(36).slice(2);
 
 // These mosquito-net types are sold by measured square feet.
 const isDoorNet = (type: string) => type.trim().toUpperCase() === 'DOOR NET';
+const isVelcroNet = (row: Row) => row.product === 'mosquito_net' && row.type.trim().toLowerCase() === 'velcro net';
+const velcroCut = (row: Row) => {
+  const factor = row.measurementUnit === 'mm' ? 1 : 25.4;
+  const wIn = (Number(row.width) || 0) / factor;
+  const hIn = (Number(row.height) || 0) / factor;
+  const cutWIn = wIn + 2;
+  const cutHIn = hIn + 2;
+  const areaSqft = (cutWIn * cutHIn) / 144;
+  return {
+    width: row.measurementUnit === 'mm' ? cutWIn * 25.4 : cutWIn,
+    height: row.measurementUnit === 'mm' ? cutHIn * 25.4 : cutHIn,
+    areaSqft: Math.round(areaSqft * 100) / 100,
+  };
+};
 const readMosquitoMeta = (value?: string) => {
   try { const parsed = JSON.parse(value || ''); return parsed?.__mosquitoMeta === 1 ? parsed : null; } catch { return null; }
 };
@@ -179,9 +193,11 @@ export default function Measurements() {
         return calculateCurtainQty(row.part, row.height);
       case 'square_feet':
         if (row.product === 'mosquito_net') {
-          const measured = row.measurementUnit === 'mm'
-            ? calculateSquareFeetMm(row.width, row.height)
-            : calculateSquareFeet(row.width, row.height);
+          const measured = isVelcroNet(row)
+            ? velcroCut(row).areaSqft
+            : row.measurementUnit === 'mm'
+              ? calculateSquareFeetMm(row.width, row.height)
+              : calculateSquareFeet(row.width, row.height);
           const additional = Math.max(0, Number(row.additionalSqft) || 0);
           return Math.round((measured + additional) * 100) / 100;
         }
@@ -308,6 +324,7 @@ export default function Measurements() {
           {(row.product==='blinds' || row.product==='mosquito_net')?<><Text style={styles.miniLabel}>Measurement Unit</Text><ChipGroup options={['inch','mm']} selected={row.measurementUnit} onSelect={v=>updateRow(row.id,{measurementUnit:v as 'inch'|'mm'})}/></>:null}
           {row.product==='curtains'?<Field label="Part" value={row.part} onChangeText={t=>updateRow(row.id,{part:numericInput(t)})} keyboardType="numeric" placeholder="0"/>:null}
           <View style={styles.halfRow}><View style={{flex:1,marginRight:8}}><Field label={row.product==='mosquito_net' ? `Width (${row.measurementUnit})` : def.formula==='accessories'?'Curtain Width (in)':def.formula==='linear_meter'?'Material (mtr)':'Width (in)'} value={row.width} onChangeText={t=>updateRow(row.id,{width:numericInput(t)})} keyboardType="numeric" placeholder="0"/></View>{def.usesHeight?<View style={{flex:1}}><Field label={`Height${row.product==='mosquito_net' ? ` (${row.measurementUnit})` : ''}`} value={row.height} onChangeText={t=>updateRow(row.id,{height:numericInput(t)})} keyboardType="numeric" placeholder="0"/></View>:<View style={{flex:1}}/>}</View>
+          {isVelcroNet(row) ? (() => { const cut = velcroCut(row); return <View style={styles.wpBox}><Text style={styles.wpFormula}>VELCRO NET CUTTING SIZE (+2 inch allowance)</Text><Text style={styles.wpBonusText}>Original: {row.width} × {row.height} {row.measurementUnit}</Text><Text style={styles.wpBonusText}>Cutting: {cut.width.toFixed(1)} × {cut.height.toFixed(1)} {row.measurementUnit}</Text><Text style={styles.wpBonusText}>Material required: {cut.areaSqft.toFixed(2)} sq.ft</Text><Text style={styles.wpNote}>Rotation and panel splitting are allowed for both stock widths</Text></View>; })() : null}
           {row.product==='mosquito_net' ? <><Field label="Additional Sq.ft (Manual)" value={row.additionalSqft} onChangeText={t=>updateRow(row.id,{additionalSqft:numericInput(t)})} keyboardType="numeric" placeholder="0"/><Field label="Description" value={row.description} onChangeText={t=>updateRow(row.id,{description:t})} placeholder="Enter mosquito net details"/>{isDoorNet(row.type) ? <><Field label="Frame Color" value={row.frameColor} onChangeText={t=>updateRow(row.id,{frameColor:t})} placeholder="e.g. White / Black / Brown"/><Text style={styles.miniLabel}>Open Method</Text><ChipGroup options={['Bottom Open','Left Open','Right Open']} selected={row.openMethod} onSelect={v=>updateRow(row.id,{openMethod:v as Row['openMethod']})}/>{row.openMethod==='Left Open' ? <Field label="No. of Doors Opening Left" value={row.leftOpenCount} onChangeText={t=>updateRow(row.id,{leftOpenCount:numericInput(t,false)})} keyboardType="numeric" placeholder="Enter count"/> : null}{row.openMethod==='Right Open' ? <Field label="No. of Doors Opening Right" value={row.rightOpenCount} onChangeText={t=>updateRow(row.id,{rightOpenCount:numericInput(t,false)})} keyboardType="numeric" placeholder="Enter count"/> : null}<Field label="Door Split Count" value={row.doorSplitCount} onChangeText={t=>updateRow(row.id,{doorSplitCount:numericInput(t,false)})} keyboardType="numeric" placeholder="How many door panels?"/></> : null}</> : null}
           {row.product==='curtains'&&row.type!=='Sheer'?<><View style={styles.comboHead}><View><Text style={styles.comboTitle}>Smart Curtain Combo</Text><Text style={styles.comboSub}>Main size → optional layers auto copy</Text></View><Ionicons name="sparkles" size={20} color={colors.orange}/></View><View style={{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:8}}><TouchableOpacity style={styles.layerChip} onPress={()=>addCurtainLayer('Sheer')}><Text style={styles.layerChipText}>+ Sheer · Copy Size</Text></TouchableOpacity>{(['Blackout Lining','Semi Lining'] as const).map(k=>{const on=row.liningType===k;return <TouchableOpacity key={k} style={[styles.layerChip,on&&{backgroundColor:colors.navy}]} onPress={()=>updateRow(row.id,{liningType:on?'':k})}><Text style={[styles.layerChipText,on&&{color:'#fff'}]}>{on?'✓ ':''}{k}</Text></TouchableOpacity>})}</View></>:null}
           {row.product === 'blinds' && row.type.toLowerCase() === 'roman' ? <><Field label="Fabric Required (mtr)" value={row.manualFabricMtr} onChangeText={t=>updateRow(row.id,{manualFabricMtr:numericInput(t)})} keyboardType="numeric" placeholder="Enter fabric metres manually"/><Field label="Fabric Details" value={row.fabricType} onChangeText={t=>updateRow(row.id,{fabricType:t})} placeholder="Enter Roman blind fabric details"/></> : row.product === 'curtains' ? <Field label="Main Curtains Fabric Details" value={row.fabricType} onChangeText={t=>updateRow(row.id,{fabricType:t})} placeholder="Enter main curtain fabric details"/> : null}
@@ -321,6 +338,25 @@ export default function Measurements() {
       {completedRows.length>0?<Card style={{marginTop:14}}><View style={styles.rowHead}><Text style={styles.rowTitle}>Added Items ({completedRows.length})</Text><Text style={styles.autoSave}>✓ Auto saved</Text></View>{completedRows.map((row,i)=>{const def=getProduct(row.product);return <TouchableOpacity key={row.id} style={styles.savedRow} onPress={()=>setActiveId(row.id)}><View style={{flex:1}}><Text style={styles.savedTitle}>{i+1}. {row.area||'Untitled'} · {def.name}</Text><Text style={styles.savedMeta}>{row.type||'—'} · {quantityOf(row)} {row.product === 'blinds' && row.type.toLowerCase() === 'roman' ? 'mtr' : def.qtyUnit}</Text></View><Text style={styles.savedTotal}>{formatINR(totalOf(row),false)}</Text><Ionicons name="pencil" size={18} color={colors.navy}/><TouchableOpacity onPress={()=>removeRow(row.id)}><Ionicons name="trash-outline" size={18} color={colors.danger}/></TouchableOpacity></TouchableOpacity>})}</Card>:null}
 
       <Button title="+ Add Another Item" icon="add" variant="outline" style={{ marginTop: 14 }} onPress={() => addRow(activeRow?.product ?? selectedProducts[selectedProducts.length - 1] ?? 'curtains')} />
+
+      {(() => {
+        const velcroRows = rows.filter(isVelcroNet);
+        if (!velcroRows.length) return null;
+        const totalSqft = velcroRows.reduce((sum, item) => sum + velcroCut(item).areaSqft + Math.max(0, Number(item.additionalSqft) || 0), 0);
+        const feet3 = totalSqft / 3;
+        const feet5 = totalSqft / 5;
+        return <Card style={{ marginTop: 14 }}>
+          <Text style={styles.rowTitle}>Velcro Net – Whole House Stock Calculation</Text>
+          <Text style={styles.savedMeta}>Windows added: {velcroRows.length} · Cutting allowance: +2 inch on width and height per window</Text>
+          {velcroRows.map((item, index) => { const cut = velcroCut(item); return <Text key={item.id} style={styles.wpFormula}>{index + 1}. {item.area || 'Window'}: {cut.areaSqft.toFixed(2)} sq.ft</Text>; })}
+          <View style={styles.wpBox}>
+            <Text style={styles.wpFormula}>Total material: {totalSqft.toFixed(2)} sq.ft</Text>
+            <Text style={styles.wpBonusText}>3 Feet Net: {feet3.toFixed(2)} running feet required</Text>
+            <Text style={styles.wpBonusText}>5 Feet Net: {feet5.toFixed(2)} running feet required</Text>
+            <Text style={styles.wpNote}>Estimate assumes panels can be rotated and split. Running feet = total cutting area ÷ stock roll width; actual cutting layout may create extra waste.</Text>
+          </View>
+        </Card>;
+      })()}
 
       <Card style={{ marginTop: 16 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
