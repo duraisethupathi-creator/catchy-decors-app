@@ -487,7 +487,7 @@ export default function Preview() {
                     label={`${unitLabel} — override allowed`}
                     value={String(it.quantity)}
                     onChangeText={(t) => updItem(it.id, { quantity: toNum(numericInput(t)) })}
-                    keyboardType="numeric"
+                    keyboardType="decimal-pad"
                   />
                 </View>
                 <TouchableOpacity onPress={() => resetQtyToFormula(it)} style={styles.resetBtn}>
@@ -527,7 +527,7 @@ export default function Preview() {
           <Field label="Curtain Width (in)" value={String(a.width)} onChangeText={(t) => updAcc(a.id, { width: toNum(numericInput(t)) })} keyboardType="numeric" />
           <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
             <View style={{ flex: 1, marginRight: 8 }}>
-              <Field label="Qty / R.ft — override allowed" value={String(a.quantity)} onChangeText={(t) => updAcc(a.id, { quantity: toNum(numericInput(t)) })} keyboardType="numeric" />
+              <Field label="Qty / R.ft — override allowed" value={String(a.quantity)} onChangeText={(t) => updAcc(a.id, { quantity: toNum(numericInput(t)) })} keyboardType="decimal-pad" />
             </View>
             <TouchableOpacity onPress={() => resetAccQty(a)} style={styles.resetBtn}>
               <Ionicons name="refresh" size={18} color={colors.navy} />
