@@ -84,6 +84,15 @@ function nl2br(s: string): string {
   return esc(s).replace(/\n/g, '<br/>');
 }
 
+function mosquitoDescription(it: { product_type: string; fabric_type?: string }): string {
+  if (it.product_type !== 'mosquito_net') return '';
+  try {
+    const m = JSON.parse(it.fabric_type || '');
+    if (m?.__mosquitoMeta !== 1) return '';
+    return [m.description, m.frameColor ? `Frame: ${m.frameColor}` : '', m.openMethod ? `Open: ${m.openMethod}` : '', m.openMethod === 'Left Open' && m.leftOpenCount ? `Left opening doors: ${m.leftOpenCount}` : '', m.openMethod === 'Right Open' && m.rightOpenCount ? `Right opening doors: ${m.rightOpenCount}` : '', m.doorSplitCount ? `Door split: ${m.doorSplitCount}` : '', Number(m.additionalSqft) > 0 ? `Additional: ${m.additionalSqft} sq.ft` : ''].filter(Boolean).map((v) => esc(String(v))).join('<br/>');
+  } catch { return ''; }
+}
+
 /**
  * Build the printable HTML for a quotation or tax invoice.
  *
@@ -133,7 +142,7 @@ export function buildQuotationHtml(
   const tOpt = (v: string | undefined) => (v ?? '').trim() || '-';
   const sOpt = (v: string | undefined, fb: string) => ((v ?? '').trim() ? (v as string).trim() : fb);
   const fabricCell = (it: { fabric_type?: string; fabric_area?: number; lining_type?: string; lining_fabric?: string }) => {
-    const main = (it.fabric_type ?? '').trim();
+    const main = it.product_type === 'mosquito_net' ? mosquitoDescription(it as any) : (it.fabric_type ?? '').trim();
     const lining = (it.lining_type ?? '').trim();
     const liningFabric = (it.lining_fabric ?? '').trim();
     const details = [main ? (it.product_type === 'blinds' ? esc(main) : `Main: ${esc(main)}`) : '', lining ? `Lining: ${esc(lining)}${liningFabric ? ` — ${esc(liningFabric)}` : ''}` : '', it.fabric_area ? `${it.fabric_area} sq.ft` : ''].filter(Boolean);
@@ -164,7 +173,7 @@ export function buildQuotationHtml(
           const cells: string[] = [];
           if (template.showSerialColumn) cells.push(`<td>${serials[i]}</td>`);
           if (template.showAreaColumn) cells.push(`<td style="text-align:left">${esc(it.area_name)}</td>`);
-          cells.push(`<td style="text-align:left">${esc(getProduct(it.product_type).name)}</td>`);
+          cells.push(`<td style="text-align:left">${esc(getProduct(it.product_type).name)}${it.product_type === 'mosquito_net' && mosquitoDescription(it) ? `<br/><small>${mosquitoDescription(it)}</small>` : ''}</td>`);
           if (template.showTypeColumn) cells.push(`<td style="text-align:left">${esc(tOpt(it.type))}</td>`);
           if (template.showFabricColumn) cells.push(`<td style="text-align:left">${fabricCell(it)}</td>`);
           if (template.showWidthColumn) cells.push(`<td>${it.width || '-'}</td>`);
@@ -493,7 +502,7 @@ export function buildGstBillHtml(
     const taxable = round2(Number(it.total || 0));
     const rate = Number(it.gst_percent ?? defaultRate);
     const tax = round2((taxable * rate) / 100);
-    return `<tr><td>${i + 1}</td><td class="left">${esc(getProduct(it.product_type).name)}${it.type ? ` - ${esc(it.type)}` : ''}</td><td>${esc(template.hsnCode || '-')}</td><td>${it.quantity}</td><td>${money(it.price)}</td><td>${money(taxable)}</td><td>${rate}%</td><td>${money(tax)}</td><td>${money(taxable + tax)}</td></tr>`;
+    return `<tr><td>${i + 1}</td><td class="left">${esc(getProduct(it.product_type).name)}${it.type ? ` - ${esc(it.type)}` : ''}${it.product_type === 'mosquito_net' && mosquitoDescription(it) ? `<br/><small>${mosquitoDescription(it)}</small>` : ''}</td><td>${esc(template.hsnCode || '-')}</td><td>${it.quantity}</td><td>${money(it.price)}</td><td>${money(taxable)}</td><td>${rate}%</td><td>${money(tax)}</td><td>${money(taxable + tax)}</td></tr>`;
   }).join('');
 
   const accessoryRows = accessories.map((a, i) => {
