@@ -262,7 +262,7 @@ export default function Measurements() {
       if (r.product === 'mosquito_net') {
         if (Number(r.width) <= 0 || Number(r.height) <= 0 || Number(r.additionalSqft) < 0) return true;
         if (isDoorNet(r.type)) {
-          if (!r.frameColor.trim() || !r.description.trim() || Number(r.doorSplitCount) <= 0) return true;
+          if (!r.frameColor.trim() || Number(r.doorSplitCount) <= 0) return true;
           if (r.openMethod === 'Left Open' && Number(r.leftOpenCount) <= 0) return true;
           if (r.openMethod === 'Right Open' && Number(r.rightOpenCount) <= 0) return true;
         }
