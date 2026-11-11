@@ -84,6 +84,14 @@ function nl2br(s: string): string {
   return esc(s).replace(/\n/g, '<br/>');
 }
 
+function isVelcroMosquitoNet(it: { product_type: string; type?: string }): boolean {
+  return it.product_type === 'mosquito_net' && String(it.type || '').trim().toLowerCase() === 'velcro net';
+}
+
+function itemGstRate(it: { product_type: string; type?: string; gst_percent?: number }, defaultRate: number): number {
+  return isVelcroMosquitoNet(it) ? 0 : Number(it.gst_percent ?? defaultRate);
+}
+
 function mosquitoDescription(it: { product_type: string; fabric_type?: string }): string {
   if (it.product_type !== 'mosquito_net') return '';
   try {
@@ -225,7 +233,7 @@ export function buildQuotationHtml(
   /* ---------- totals ---------- */
   const taxable = round2(q.subtotal + q.accessories_total + (q.other_charges ?? 0) - q.discount);
   const gstPercent = isGst ? Number(gst?.percent ?? template.gstPercent ?? 0) : 0;
-  const itemGstAmount = isGst ? round2(items.reduce((sum, it) => sum + ((it.total || 0) * Number(it.gst_percent ?? gstPercent)) / 100, 0)) : 0;
+  const itemGstAmount = isGst ? round2(items.reduce((sum, it) => sum + ((it.total || 0) * itemGstRate(it, gstPercent)) / 100, 0)) : 0;
   const nonItemTaxable = round2(q.accessories_total + (q.other_charges ?? 0) - q.discount);
   const gstAmount = isGst ? round2(itemGstAmount + (nonItemTaxable * gstPercent) / 100) : 0;
   const grand = isGst ? round2(taxable + gstAmount) : q.grand_total;
@@ -500,7 +508,7 @@ export function buildGstBillHtml(
 
   const productRows = items.map((it, i) => {
     const taxable = round2(Number(it.total || 0));
-    const rate = Number(it.gst_percent ?? defaultRate);
+    const rate = itemGstRate(it, defaultRate);
     const tax = round2((taxable * rate) / 100);
     return `<tr><td>${i + 1}</td><td class="left">${esc(getProduct(it.product_type).name)}${it.type ? ` - ${esc(it.type)}` : ''}${it.product_type === 'mosquito_net' && mosquitoDescription(it) ? `<br/><small>${mosquitoDescription(it)}</small>` : ''}</td><td>${esc(template.hsnCode || '-')}</td><td>${it.quantity}</td><td>${money(it.price)}</td><td>${money(taxable)}</td><td>${rate}%</td><td>${money(tax)}</td><td>${money(taxable + tax)}</td></tr>`;
   }).join('');
@@ -513,7 +521,7 @@ export function buildGstBillHtml(
   }).join('');
 
   const productTaxable = round2(items.reduce((s, it) => s + Number(it.total || 0), 0));
-  const productTax = round2(items.reduce((s, it) => s + Number(it.total || 0) * Number(it.gst_percent ?? defaultRate) / 100, 0));
+  const productTax = round2(items.reduce((s, it) => s + Number(it.total || 0) * itemGstRate(it, defaultRate) / 100, 0));
   const accessoryTaxable = round2(accessories.reduce((s, a) => s + Number(a.total || 0), 0));
   const otherTaxable = round2(Number(q.other_charges || 0));
   const discount = round2(Number(q.discount || 0));
