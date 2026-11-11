@@ -39,6 +39,16 @@ import type { MaterialReferencePhoto, Quotation } from '../../src/types/quotatio
 
 const uid = () => Math.random().toString(36).slice(2);
 
+function mosquitoMetaText(item: Measurement): string {
+  if (item.product_type !== 'mosquito_net') return '';
+  try {
+    const meta = JSON.parse(item.fabric_type || '');
+    if (meta?.__mosquitoMeta !== 1) return '';
+    const parts = [meta.description, meta.frameColor ? `Frame: ${meta.frameColor}` : '', meta.openMethod ? `Open: ${meta.openMethod}` : '', meta.openMethod === 'Left Open' && meta.leftOpenCount ? `Left opening doors: ${meta.leftOpenCount}` : '', meta.openMethod === 'Right Open' && meta.rightOpenCount ? `Right opening doors: ${meta.rightOpenCount}` : '', meta.doorSplitCount ? `Split: ${meta.doorSplitCount}` : ''].filter(Boolean);
+    return parts.join(' · ');
+  } catch { return ''; }
+}
+
 interface AccRow {
   id: string;
   area: string;
@@ -340,7 +350,7 @@ export default function NewQuotation() {
           const unitLabel = colLabel === 'Qty' ? `Qty (${def.qtyUnit})` : colLabel;
           return (
             <View key={it.id} style={styles.lineRow}>
-              <Text style={styles.lineText}>{i + 1}. {it.area_name} — {def.name}{it.product_type==='curtains'&&it.fabric_type ? ` with ${it.fabric_type}` : ''} · {unitLabel} {it.quantity}</Text>
+              <Text style={styles.lineText}>{i + 1}. {it.area_name} — {def.name}{it.product_type==='curtains'&&it.fabric_type ? ` with ${it.fabric_type}` : ''} · {unitLabel} {it.quantity}{mosquitoMetaText(it) ? ` · ${mosquitoMetaText(it)}` : ''}</Text>
               <Text style={styles.lineTotal}>{formatINR(it.total, false)}</Text>
             </View>
           );
