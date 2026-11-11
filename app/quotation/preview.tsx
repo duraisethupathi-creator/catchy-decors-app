@@ -221,11 +221,11 @@ export default function Preview() {
   }
   function updateItemQtyText(itemId: string, value: string) {
     setQuantityTextDrafts((current) => ({ ...current, [itemId]: value }));
-    if (/^\\d+(?:\\.\\d+)?$/.test(value)) updItem(itemId, { quantity: Number(value) });
+    if (/^\d+(?:\.\d+)?$/.test(value)) updItem(itemId, { quantity: Number(value) });
   }
   function updateAccessoryQtyText(itemId: string, value: string) {
     setAccessoryQtyTextDrafts((current) => ({ ...current, [itemId]: value }));
-    if (/^\\d+(?:\\.\\d+)?$/.test(value)) updAcc(itemId, { quantity: Number(value) });
+    if (/^\d+(?:\.\d+)?$/.test(value)) updAcc(itemId, { quantity: Number(value) });
   }
   function resetQtyToFormula(it: Measurement) {
     setQuantityTextDrafts((current) => { const next = { ...current }; delete next[it.id]; return next; });
