@@ -84,6 +84,9 @@ export default function Preview() {
   const [q, setQ] = useState<Quotation | null>(null); // last saved copy
   const [draft, setDraft] = useState<Quotation | null>(null); // editable copy
   const [dirty, setDirty] = useState(false);
+  // Preserve the raw text while a decimal number is being typed.
+  const [quantityTextDrafts, setQuantityTextDrafts] = useState<Record<string, string>>({});
+  const [accessoryQtyTextDrafts, setAccessoryQtyTextDrafts] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [charges, setCharges] = useState<ChargesBundle>(emptyChargesBundle);
   const [showGstEditor, setShowGstEditor] = useState(false);
@@ -216,11 +219,21 @@ export default function Preview() {
     setDirty(true);
     toast('Stitching quantity restored from Curtain Parts');
   }
+  function updateItemQtyText(itemId: string, value: string) {
+    setQuantityTextDrafts((current) => ({ ...current, [itemId]: value }));
+    if (/^\\d+(?:\\.\\d+)?$/.test(value)) updItem(itemId, { quantity: Number(value) });
+  }
+  function updateAccessoryQtyText(itemId: string, value: string) {
+    setAccessoryQtyTextDrafts((current) => ({ ...current, [itemId]: value }));
+    if (/^\\d+(?:\\.\\d+)?$/.test(value)) updAcc(itemId, { quantity: Number(value) });
+  }
   function resetQtyToFormula(it: Measurement) {
+    setQuantityTextDrafts((current) => { const next = { ...current }; delete next[it.id]; return next; });
     updItem(it.id, { quantity: formulaQty(it) });
     toast(`Quantity restored to formula value (${formulaQty(it)})`);
   }
   function resetAccQty(acc: NonNullable<Quotation['accessories']>[number]) {
+    setAccessoryQtyTextDrafts((current) => { const next = { ...current }; delete next[acc.id]; return next; });
     updAcc(acc.id, { quantity: calculateAccessories(acc.width) });
     toast(`Quantity restored to formula value (${calculateAccessories(acc.width)})`);
   }
@@ -485,8 +498,8 @@ export default function Preview() {
                 <View style={{ flex: 1, marginRight: 8 }}>
                   <Field
                     label={`${unitLabel} — override allowed`}
-                    value={String(it.quantity)}
-                    onChangeText={(t) => updItem(it.id, { quantity: toNum(numericInput(t)) })}
+                    value={quantityTextDrafts[it.id] ?? String(it.quantity)}
+                    onChangeText={(t) => updateItemQtyText(it.id, numericInput(t))}
                     keyboardType="decimal-pad"
                   />
                 </View>
@@ -527,7 +540,7 @@ export default function Preview() {
           <Field label="Curtain Width (in)" value={String(a.width)} onChangeText={(t) => updAcc(a.id, { width: toNum(numericInput(t)) })} keyboardType="numeric" />
           <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
             <View style={{ flex: 1, marginRight: 8 }}>
-              <Field label="Qty / R.ft — override allowed" value={String(a.quantity)} onChangeText={(t) => updAcc(a.id, { quantity: toNum(numericInput(t)) })} keyboardType="decimal-pad" />
+              <Field label="Qty / R.ft — override allowed" value={accessoryQtyTextDrafts[a.id] ?? String(a.quantity)} onChangeText={(t) => updateAccessoryQtyText(a.id, numericInput(t))} keyboardType="decimal-pad" />
             </View>
             <TouchableOpacity onPress={() => resetAccQty(a)} style={styles.resetBtn}>
               <Ionicons name="refresh" size={18} color={colors.navy} />
