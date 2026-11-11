@@ -136,7 +136,10 @@ export async function updateQuotationStatus(id: string, status: QuotationStatus)
 export async function deleteQuotation(id: string): Promise<void> {
   const rows = await getQuotations();
   await saveAll(STORE, rows.filter((q) => q.id !== id));
+  // Remove the per-record payload first. The queued missing payload is the
+  // tombstone that syncWithSupabase() uses to delete this quotation in cloud.
   await AsyncStorage.removeItem(`cd_quotations_${id}`);
+  await queueForSync('quotations', id);
 }
 
 export async function duplicateQuotation(id: string): Promise<Quotation | null> {
