@@ -496,7 +496,13 @@ export default function Preview() {
                 </TouchableOpacity>
               </View>
               <Field label="Price / unit (₹)" value={String(it.price)} onChangeText={(t) => updItem(it.id, { price: toNum(numericInput(t)) })} keyboardType="numeric" />
-              <Field label="GST % (this item)" value={String(it.gst_percent ?? gst.percent ?? 0)} onChangeText={(t) => updItem(it.id, { gst_percent: Math.max(0, Math.min(100, toNum(numericInput(t)))) })} keyboardType="numeric" />
+              {it.product_type === 'mosquito_net' && String(it.type || '').trim().toLowerCase() === 'velcro net' ? (
+                <View style={{ paddingVertical: 10 }}>
+                  <Text style={{ color: colors.textMuted, fontWeight: '700' }}>GST: 0% — Velcro Net</Text>
+                </View>
+              ) : (
+                <Field label="GST % (this item)" value={String(it.gst_percent ?? gst.percent ?? 0)} onChangeText={(t) => updItem(it.id, { gst_percent: Math.max(0, Math.min(100, toNum(numericInput(t)))) })} keyboardType="numeric" />
+              )}
               <View style={styles.liveTotalRow}>
                 <Text style={styles.liveTotalLabel}>Line Total (Qty × Price)</Text>
                 <Text style={styles.liveTotalValue}>{formatINR(it.liveTotal)}</Text>
