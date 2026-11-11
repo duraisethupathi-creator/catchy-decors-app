@@ -141,7 +141,7 @@ export function buildQuotationHtml(
   const accent = template.accentColor || '#FF7A00';
   const tOpt = (v: string | undefined) => (v ?? '').trim() || '-';
   const sOpt = (v: string | undefined, fb: string) => ((v ?? '').trim() ? (v as string).trim() : fb);
-  const fabricCell = (it: { fabric_type?: string; fabric_area?: number; lining_type?: string; lining_fabric?: string }) => {
+  const fabricCell = (it: { product_type: string; fabric_type?: string; fabric_area?: number; lining_type?: string; lining_fabric?: string }) => {
     const main = it.product_type === 'mosquito_net' ? mosquitoDescription(it as any) : (it.fabric_type ?? '').trim();
     const lining = (it.lining_type ?? '').trim();
     const liningFabric = (it.lining_fabric ?? '').trim();
