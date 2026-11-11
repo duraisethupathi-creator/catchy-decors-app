@@ -52,11 +52,22 @@ import { shareQuotationExcel } from '../../src/services/excelShare';
 
 const GST_PERCENTAGES = [0, 5, 12, 18, 28] as const;
 
+function readMosquitoMeta(value?: string): any {
+  try { const meta = JSON.parse(value || ''); return meta?.__mosquitoMeta === 1 ? meta : {}; } catch { return {}; }
+}
+function writeMosquitoMeta(it: Measurement, patch: Record<string, unknown>) {
+  const meta = readMosquitoMeta(it.fabric_type);
+  return JSON.stringify({ __mosquitoMeta: 1, ...meta, ...patch });
+}
+
 /** Formula default for a product row — the value an override replaces (never deletes). */
 function formulaQty(it: Measurement): number {
   const def = getProduct(it.product_type);
   if (def.formula === 'curtain') return calculateCurtainQty(it.part ?? 0, it.height);
-  if (def.formula === 'square_feet') return (it.product_type === 'blinds' || it.product_type === 'mosquito_net') && it.measurement_unit === 'mm' ? calculateSquareFeetMm(it.width, it.height) : calculateSquareFeet(it.width, it.height);
+  if (def.formula === 'square_feet') {
+    const measured = (it.product_type === 'blinds' || it.product_type === 'mosquito_net') && it.measurement_unit === 'mm' ? calculateSquareFeetMm(it.width, it.height) : calculateSquareFeet(it.width, it.height);
+    return it.product_type === 'mosquito_net' ? Math.round((measured + (Number(readMosquitoMeta(it.fabric_type).additionalSqft) || 0)) * 100) / 100 : measured;
+  }
   if (def.formula === 'wallpaper') return calculateWallpaperQty(it.width, it.height, false).qty;
   if (def.formula === 'accessories') return calculateAccessories(it.width);
   return it.quantity;
@@ -447,14 +458,29 @@ export default function Preview() {
                   </View>
                 ) : <View style={{ flex: 1 }} />}
               </View>
-              <View style={{ flexDirection: 'row' }}>
+              {it.product_type === 'mosquito_net' ? (() => {
+                const meta = readMosquitoMeta(it.fabric_type);
+                const door = (it.type || '').trim().toUpperCase() === 'DOOR NET';
+                return <View>
+                  <Field label="Additional Sq.ft (Manual)" value={String(meta.additionalSqft ?? '')} onChangeText={(t) => updItem(it.id, { fabric_type: writeMosquitoMeta(it, { additionalSqft: toNum(numericInput(t)) }) })} keyboardType="numeric" />
+                  <Field label="Description" value={String(meta.description ?? '')} onChangeText={(t) => updItem(it.id, { fabric_type: writeMosquitoMeta(it, { description: t }) })} />
+                  {door ? <>
+                    <Field label="Frame Color" value={String(meta.frameColor ?? '')} onChangeText={(t) => updItem(it.id, { fabric_type: writeMosquitoMeta(it, { frameColor: t }) })} />
+                    <Text style={styles.miniLabel}>Open Method</Text>
+                    <ChipGroup options={['Bottom Open','Left Open','Right Open']} selected={meta.openMethod || 'Bottom Open'} onSelect={(v) => updItem(it.id, { fabric_type: writeMosquitoMeta(it, { openMethod: v }) })} />
+                    {meta.openMethod === 'Left Open' ? <Field label="No. of Doors Opening Left" value={String(meta.leftOpenCount ?? '')} onChangeText={(t) => updItem(it.id, { fabric_type: writeMosquitoMeta(it, { leftOpenCount: toNum(numericInput(t, false)) }) })} keyboardType="numeric" /> : null}
+                    {meta.openMethod === 'Right Open' ? <Field label="No. of Doors Opening Right" value={String(meta.rightOpenCount ?? '')} onChangeText={(t) => updItem(it.id, { fabric_type: writeMosquitoMeta(it, { rightOpenCount: toNum(numericInput(t, false)) }) })} keyboardType="numeric" /> : null}
+                    <Field label="Door Split Count" value={String(meta.doorSplitCount ?? '')} onChangeText={(t) => updItem(it.id, { fabric_type: writeMosquitoMeta(it, { doorSplitCount: toNum(numericInput(t, false)) }) })} keyboardType="numeric" />
+                  </> : null}
+                </View>;
+              })() : <View style={{ flexDirection: 'row' }}>
                 <View style={{ flex: 1, marginRight: 8 }}>
                   <Field label="Fabric Details" value={it.fabric_type ?? ''} onChangeText={(t) => updItem(it.id, { fabric_type: t })} placeholder="e.g. Cotton, Blackout" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Field label="Fabric Area (sq.ft)" value={String(it.fabric_area ?? '')} onChangeText={(t) => updItem(it.id, { fabric_area: toNum(numericInput(t)) })} keyboardType="numeric" />
                 </View>
-              </View>
+              </View>}
               <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
                 <View style={{ flex: 1, marginRight: 8 }}>
                   <Field
