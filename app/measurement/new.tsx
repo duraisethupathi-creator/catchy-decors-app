@@ -348,7 +348,7 @@ export default function Measurements() {
         return <Card style={{ marginTop: 14 }}>
           <Text style={styles.rowTitle}>Velcro Net – Whole House Stock Calculation</Text>
           <Text style={styles.savedMeta}>Windows added: {velcroRows.length} · Cutting allowance: +2 inch on width and height per window</Text>
-          {velcroRows.map((item, index) => { const cut = velcroCut(item); return <Text key={item.id} style={styles.wpFormula}>{index + 1}. {item.area || 'Window'}: {cut.areaSqft.toFixed(2)} sq.ft</Text>; })}
+          {velcroRows.map((item, index) => { const cut = velcroCut(item); return <View key={item.id} style={{ marginTop: 5 }}><Text style={styles.wpFormula}>{index + 1}. {item.area || 'Window'} · Original {item.width} × {item.height} {item.measurementUnit}</Text><Text style={styles.wpBonusText}>Cut size: {cut.width.toFixed(1)} × {cut.height.toFixed(1)} {item.measurementUnit} · {cut.areaSqft.toFixed(2)} sq.ft</Text></View>; })}
           <View style={styles.wpBox}>
             <Text style={styles.wpFormula}>Total material: {totalSqft.toFixed(2)} sq.ft</Text>
             <Text style={styles.wpBonusText}>3 Feet Net: {feet3.toFixed(2)} running feet required</Text>
