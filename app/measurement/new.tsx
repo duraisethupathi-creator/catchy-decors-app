@@ -61,7 +61,7 @@ const uid = () => Math.random().toString(36).slice(2);
 const isDoorNet = (type: string) => type.trim().toUpperCase() === 'DOOR NET';
 const isVelcroNet = (row: Row) => row.product === 'mosquito_net' && row.type.trim().toLowerCase() === 'velcro net';
 const velcroCut = (row: Row) => {
-  const factor = row.measurementUnit === 'mm' ? 1 : 25.4;
+  const factor = row.measurementUnit === 'mm' ? 25.4 : 1;
   const wIn = (Number(row.width) || 0) / factor;
   const hIn = (Number(row.height) || 0) / factor;
   const cutWIn = wIn + 2;
