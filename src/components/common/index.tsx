@@ -33,7 +33,7 @@ export function Field({
   onChangeText: (t: string) => void;
   placeholder?: string;
   error?: string;
-  keyboardType?: 'default' | 'numeric' | 'phone-pad' | 'email-address';
+  keyboardType?: 'default' | 'numeric' | 'decimal-pad' | 'phone-pad' | 'email-address';
   secure?: boolean;
   multiline?: boolean;
   right?: React.ReactNode;
