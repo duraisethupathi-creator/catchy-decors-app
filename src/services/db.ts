@@ -296,6 +296,23 @@ export async function autoSyncTwoDevices(): Promise<boolean> {
   try {
     await hydrateSupabaseConfig();
     if (!isSupabaseConfigured()) return false;
+    // Migrate legacy missing-payload delete entries before pull can repopulate their cache.
+    const rawQueue = await AsyncStorage.getItem('cd_sync_queue');
+    const queue: string[] = rawQueue ? JSON.parse(rawQueue) : [];
+    const keepQueue: string[] = [];
+    const rawDeletes = await AsyncStorage.getItem('cd_sync_deletes');
+    const deletes: string[] = rawDeletes ? JSON.parse(rawDeletes) : [];
+    for (const entry of queue) {
+      const [table, id] = entry.split(':');
+      const payload = await AsyncStorage.getItem(`cd_${table}_${id}`);
+      if (!payload) {
+        if (!deletes.includes(entry)) deletes.push(entry);
+      } else {
+        keepQueue.push(entry);
+      }
+    }
+    await AsyncStorage.setItem('cd_sync_queue', JSON.stringify(keepQueue));
+    await AsyncStorage.setItem('cd_sync_deletes', JSON.stringify(deletes));
     const pulled = await pullFromSupabase();
     if (!pulled.ok) return false;
     return await syncWithSupabase();
