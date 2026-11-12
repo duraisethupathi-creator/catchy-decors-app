@@ -227,7 +227,7 @@ export async function pullFromSupabase(): Promise<{ ok: boolean; detail: string 
   let failed = 0;
   const rawDeletes = await AsyncStorage.getItem('cd_sync_deletes');
   const pendingDeletes: string[] = rawDeletes ? JSON.parse(rawDeletes) : [];
-  const deletedIds = new Set(pendingDeletes.map((entry) => entry.split(':', 2)));
+  const deletedIds = new Set(pendingDeletes);
 
   for (const { table, store } of SYNC_TARGETS) {
     const res = await fetchAllRows<Record<string, unknown>>(table);
