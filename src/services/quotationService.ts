@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { loadAll, saveAll, queueForSync, uuid } from './db';
+import { loadAll, saveAll, queueForSync, queueDeleteForSync, uuid } from './db';
 import { appendMeasurements, appendAccessories, clearDraftMeasurements, clearDraftAccessories, clearChargesDraft } from './measurementService';
 import { calculateFitting, calculateStitching, round2 } from '../utils/calculations';
 import type { Customer } from '../types/customer';
@@ -139,7 +139,7 @@ export async function deleteQuotation(id: string): Promise<void> {
   // Remove the per-record payload first. The queued missing payload is the
   // tombstone that syncWithSupabase() uses to delete this quotation in cloud.
   await AsyncStorage.removeItem(`cd_quotations_${id}`);
-  await queueForSync('quotations', id);
+  await queueDeleteForSync('quotations', id);
 }
 
 export async function duplicateQuotation(id: string): Promise<Quotation | null> {
