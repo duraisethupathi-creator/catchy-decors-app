@@ -237,7 +237,20 @@ export async function pullFromSupabase(): Promise<{ ok: boolean; detail: string 
       continue;
     }
     const local = await readStore(store);
+    const rawQueue = await AsyncStorage.getItem('cd_sync_queue');
+    const pendingUpserts = new Set<string>(rawQueue ? JSON.parse(rawQueue) : []);
+    const cloudIds = new Set(res.rows.map((row) => String(row.id ?? '')).filter(Boolean));
     const byId = new Map<string, Record<string, unknown>>();
+    // Cloud is authoritative for quotations: remove local rows deleted by another device,
+    // but retain local-only rows that are still waiting to be uploaded.
+    if (table === 'quotations') {
+      for (const row of local) {
+        const id = String(row.id ?? '');
+        if (id && !cloudIds.has(id) && pendingUpserts.has(`${table}:${id}`)) {
+          byId.set(id, row);
+        }
+      }
+    }
     for (const r of local) {
       if (r.id !== undefined) byId.set(String(r.id), r);
     }
