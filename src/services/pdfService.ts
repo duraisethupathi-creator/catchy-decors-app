@@ -153,7 +153,15 @@ export function buildQuotationHtml(
     const main = it.product_type === 'mosquito_net' ? mosquitoDescription(it as any) : (it.fabric_type ?? '').trim();
     const lining = (it.lining_type ?? '').trim();
     const liningFabric = (it.lining_fabric ?? '').trim();
-    const details = [main ? (it.product_type === 'blinds' ? esc(main) : `Main: ${esc(main)}`) : '', lining ? `Lining: ${esc(lining)}${liningFabric ? ` — ${esc(liningFabric)}` : ''}` : '', it.fabric_area ? `${it.fabric_area} sq.ft` : ''].filter(Boolean);
+    // mosquitoDescription() already HTML-escapes its values and inserts safe
+    // <br/> separators. Do not escape that markup a second time, or the PDF
+    // prints the literal "<br/>" text in the Fabric Details column.
+    const mainHtml = main
+      ? (it.product_type === 'mosquito_net'
+          ? `Main: ${main}`
+          : it.product_type === 'blinds' ? esc(main) : `Main: ${esc(main)}`)
+      : '';
+    const details = [mainHtml, lining ? `Lining: ${esc(lining)}${liningFabric ? ` — ${esc(liningFabric)}` : ''}` : '', it.fabric_area ? `${it.fabric_area} sq.ft` : ''].filter(Boolean);
     return details.length ? details.join('<br/>') : '-';
   };
   const productStartCols = (template.showSerialColumn ? 1 : 0) + (template.showAreaColumn ? 1 : 0);
