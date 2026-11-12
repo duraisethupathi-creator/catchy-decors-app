@@ -527,7 +527,15 @@ export function buildGstBillHtml(
   const discount = round2(Number(q.discount || 0));
   const taxable = round2(productTaxable + accessoryTaxable + otherTaxable - discount);
   const accessoryTax = round2(accessories.reduce((s, a) => s + Number(a.total || 0) * Number(a.gst_percent ?? defaultRate) / 100, 0));
-  const otherTax = round2(((otherTaxable - discount) * defaultRate) / 100);
+  // Transport, fitting/labour, stitching and additional charges follow the
+  // mosquito-net GST treatment. If this quotation contains only Velcro Net,
+  // those service charges are not taxed; every other mosquito-net type is taxed.
+  const onlyVelcroMosquitoNet =
+    items.length > 0 &&
+    items.every((it) => it.product_type === 'mosquito_net' && isVelcroMosquitoNet(it));
+  const otherTax = onlyVelcroMosquitoNet
+    ? 0
+    : round2(((otherTaxable - discount) * defaultRate) / 100);
   const totalTax = round2(productTax + accessoryTax + otherTax);
   const cgst = round2(totalTax / 2);
   const sgst = round2(totalTax - cgst);
@@ -552,7 +560,7 @@ export function buildGstBillHtml(
   ${productRows}${accessoryRows || ''}${!productRows && !accessoryRows ? '<tr><td colspan="9">No items</td></tr>' : ''}</table>
   <table class="totals"><tr><td>Subtotal</td><td>${money(round2(productTaxable + accessoryTaxable + otherTaxable))}</td></tr>${discount ? `<tr><td>Discount</td><td>-${money(discount)}</td></tr>` : ''}<tr><td>Taxable Amount</td><td>${money(taxable)}</td></tr>
   <tr><td>CGST</td><td>${money(cgst)}</td></tr><tr><td>SGST</td><td>${money(sgst)}</td></tr><tr><td>Total GST</td><td>${money(totalTax)}</td></tr><tr class="grand"><td>GRAND TOTAL</td><td>${money(grand)}</td></tr></table>
-  <div class="words"><b>Tax Summary:</b> GST is calculated item-wise; default GST rate ${defaultRate}%. CGST and SGST are shown equally for this invoice.</div>
+  <div class="words"><b>Tax Summary:</b> GST is calculated item-wise; transport and labour/additional charges are included for mosquito nets other than Velcro Net. Velcro Net service charges are excluded. Default GST rate ${defaultRate}%. CGST and SGST are shown equally for this invoice.</div>
   ${template.showBankDetails && (co.bankName || co.upiId) ? `<div class="payment"><b>Payment Details</b><br/>${co.bankName ? `Bank: ${esc(co.bankName)}<br/>` : ''}${co.bankAccount ? `A/C: ${esc(co.bankAccount)}<br/>` : ''}${co.bankIfsc ? `IFSC: ${esc(co.bankIfsc)}<br/>` : ''}${co.upiId ? `UPI: ${esc(co.upiId)}` : ''}</div>` : ''}
   ${template.terms ? `<div class="terms"><b>Terms & Conditions</b><br/>${nl2br(template.terms)}</div>` : ''}
   <div class="signs"><div class="sign">Customer Signature</div><div class="sign">Authorised Signatory<br/>For ${esc(company.name)}</div></div>
