@@ -60,6 +60,23 @@ export async function queueForSync(table: string, id: string): Promise<void> {
   }
 }
 
+/** Persist deletes separately so pull-first sync cannot turn a tombstone into an upsert. */
+export async function queueDeleteForSync(table: string, id: string): Promise<void> {
+  try {
+    const entry = `${table}:${id}`;
+    const rawDeletes = await AsyncStorage.getItem('cd_sync_deletes');
+    const deletes: string[] = rawDeletes ? JSON.parse(rawDeletes) : [];
+    if (!deletes.includes(entry)) deletes.push(entry);
+    await AsyncStorage.setItem('cd_sync_deletes', JSON.stringify(deletes));
+    const rawQueue = await AsyncStorage.getItem('cd_sync_queue');
+    const queue: string[] = rawQueue ? JSON.parse(rawQueue) : [];
+    await AsyncStorage.setItem('cd_sync_queue', JSON.stringify(queue.filter((item) => item !== entry)));
+    await emit(await getSyncState());
+  } catch {
+    // Keep deletion local even when cloud queueing is temporarily unavailable.
+  }
+}
+
 /**
  * Attempt to sync queued records with Supabase.
  * Returns true when everything is synced (or nothing to sync).
@@ -74,6 +91,17 @@ export async function syncWithSupabase(): Promise<boolean> {
       return true;
     }
     if (!isSupabaseConfigured()) return false; // stay queued until credentials are set
+    // Process explicit delete tombstones before ordinary upserts.
+    const rawDeletes = await AsyncStorage.getItem('cd_sync_deletes');
+    const deletes: string[] = rawDeletes ? JSON.parse(rawDeletes) : [];
+    const remainingDeletes: string[] = [];
+    for (const entry of deletes) {
+      const [table, id] = entry.split(':');
+      const res = await deleteRow(table, id);
+      if (!res.ok) remainingDeletes.push(entry);
+    }
+    await AsyncStorage.setItem('cd_sync_deletes', JSON.stringify(remainingDeletes));
+
     const remaining: string[] = [];
     for (const entry of queue) {
       const [table, id] = entry.split(':');
@@ -197,6 +225,9 @@ export async function pullFromSupabase(): Promise<{ ok: boolean; detail: string 
   if (!isSupabaseConfigured()) return { ok: false, detail: 'Add your Supabase URL and anon key first.' };
   const lines: string[] = [];
   let failed = 0;
+  const rawDeletes = await AsyncStorage.getItem('cd_sync_deletes');
+  const pendingDeletes: string[] = rawDeletes ? JSON.parse(rawDeletes) : [];
+  const deletedIds = new Set(pendingDeletes.map((entry) => entry.split(':', 2)));
 
   for (const { table, store } of SYNC_TARGETS) {
     const res = await fetchAllRows<Record<string, unknown>>(table);
@@ -213,7 +244,7 @@ export async function pullFromSupabase(): Promise<{ ok: boolean; detail: string 
     let merged = 0;
     for (const cloudRow of res.rows) {
       const id = String(cloudRow.id ?? '');
-      if (!id) continue;
+      if (!id || deletedIds.has(`${table}:${id}`)) continue;
       const localRow = byId.get(id);
       const cloudClean = cleanRow(cloudRow);
       // Conflict protection: when both devices edited the same record,
