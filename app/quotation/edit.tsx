@@ -234,7 +234,7 @@ export default function EditQuotation() {
         total: accTotal(r),
       }));
       const otherChargesTotal = otherChargesTotalFrom(bundle.totals);
-      const q = await saveQuotation({
+      const quotationData = {
         id: existing?.id,
         quotation_number: num,
         customer,
@@ -248,8 +248,33 @@ export default function EditQuotation() {
         grand_total: grandTotal,
         status: existing?.status ?? status,
         reference_photos: referencePhotos,
-      });
-      if(!existing){ const { commitQuotation } = await import('../../src/services/quotationService'); await commitQuotation(q, customer.id); }
+      };
+      let q: Quotation;
+      if (existing) {
+        // Update in place: retain the original quotation ID, number, date,
+        // creation timestamp, and invoice settings.
+        q = await updateQuotation({
+          ...existing,
+          customer_id: customer.id,
+          customer_name: customer.name,
+          customer_phone: customer.phone,
+          site_location: (customer as { site_location?: string }).site_location ?? existing.site_location,
+          items,
+          accessories,
+          charges: bundle.charges,
+          subtotal: round2(subtotal),
+          accessories_total: round2(accessoriesTotal),
+          other_charges: otherChargesTotal,
+          discount: bundle.totals.discount,
+          grand_total: grandTotal,
+          status: existing.status,
+          reference_photos: referencePhotos,
+        });
+      } else {
+        q = await saveQuotation({ ...quotationData, quotation_number: num });
+        const { commitQuotation } = await import('../../src/services/quotationService');
+        await commitQuotation(q, customer.id);
+      }
       return q;
     } finally {
       setSaving(false);
