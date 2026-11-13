@@ -277,35 +277,13 @@ export default function EditQuotation() {
   async function onSavePreview() {
     await persistDrafts();
     if (!customer) return;
-    const accessories: Accessory[] = accRows.map((r) => ({
-      id: r.id,
-      customer_id: customer.id,
-      area_name: r.area,
-      track_type: r.trackType,
-      width: Number(r.width) || 0,
-      quantity: accQty(r),
-      price: Number(r.price) || 0,
-      total: accTotal(r),
-    }));
-    const otherChargesTotal = otherChargesTotalFrom(bundle.totals);
-    const num = await nextQuotationNumber();
-    const q = await saveQuotation({
-      quotation_number: num,
-      customer,
-      items,
-      accessories,
-      charges: bundle.charges,
-      subtotal: round2(subtotal),
-      accessories_total: round2(accessoriesTotal),
-      other_charges: otherChargesTotal,
-      discount: bundle.totals.discount,
-      grand_total: grandTotal,
-      status: 'draft',
-      reference_photos: referencePhotos,
-    });
-    const { commitQuotation } = await import('../../src/services/quotationService');
-    await commitQuotation(q, customer.id);
-    router.replace(`/quotation/preview?id=${q.id}`);
+    // Use the shared save path so editing an existing quotation updates its
+    // original ID/quotation number instead of allocating a new quotation.
+    const q = await save('draft');
+    if (q) {
+      toast(params.id ? `Quotation ${q.quotation_number} updated` : `Quotation ${q.quotation_number} created`);
+      router.replace(`/quotation/preview?id=${q.id}`);
+    }
   }
 
   return (
