@@ -41,7 +41,7 @@ export const PRODUCTS: ProductDef[] = [
     icon: 'blinds-horizontal',
     description: 'Roller, wooden & vertical blinds',
     typeLabel: 'Blind Type',
-    typeOptions: ['Roller', 'Wooden', 'Vertical', 'Zebra', 'Roman', 'Venetian'],
+    typeOptions: ['Roller', 'Wooden', 'Vertical', 'Vertilite', 'Zebra', 'Roman', 'Venetian'],
     formula: 'square_feet',
     usesHeight: true,
     qtyUnit: 'sq.ft',
