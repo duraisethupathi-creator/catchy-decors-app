@@ -134,14 +134,32 @@ export default function NewQuotation() {
   const bundle = useMemo(() => buildCharges(effectiveCharges), [effectiveCharges]);
   const grandTotal = computeGrandTotal(subtotal, accessoriesTotal, bundle.totals);
 
-  const fabricNote = (() => {
-    const mtr = round2(items.filter((i) => i.product_type === 'curtains').reduce((s, i) => s + (i.quantity || 0), 0));
-    const sqft = round2(items.reduce((s, i) => s + (i.fabric_area || 0), 0));
-    const parts: string[] = [];
-    if (mtr) parts.push(`curtains ${mtr} mtr`);
-    if (sqft) parts.push(`fabric area ${sqft} sq.ft`);
-    return parts.length ? `Fabric total: ${parts.join(' · ')}` : '';
-  })();
+  const mainFabricTotals = useMemo(() => {
+    const totals = new Map<string, number>();
+    items.filter(i => i.product_type === 'curtains' && i.type !== 'Sheer' && (i.fabric_type ?? '').trim())
+      .forEach(i => {
+        const name = (i.fabric_type ?? '').trim();
+        const key = name.toLocaleLowerCase();
+        const existing = [...totals.keys()].find(k => k.toLocaleLowerCase() === key) ?? name;
+        totals.set(existing, round2((totals.get(existing) ?? 0) + (Number(i.quantity) || 0)));
+      });
+    return [...totals.entries()].map(([name, quantity]) => ({ name, quantity }));
+  }, [items]);
+  const sheerFabricTotals = useMemo(() => {
+    const totals = new Map<string, number>();
+    items.filter(i => i.product_type === 'curtains' && i.type === 'Sheer' && (i.fabric_type ?? '').trim())
+      .forEach(i => {
+        const name = (i.fabric_type ?? '').trim();
+        const key = name.toLocaleLowerCase();
+        const existing = [...totals.keys()].find(k => k.toLocaleLowerCase() === key) ?? name;
+        totals.set(existing, round2((totals.get(existing) ?? 0) + (Number(i.quantity) || 0)));
+      });
+    return [...totals.entries()].map(([name, quantity]) => ({ name, quantity }));
+  }, [items]);
+  const fabricNote = [
+    ...mainFabricTotals.map(f => `Main Fabric — ${f.name}: ${f.quantity} mtr`),
+    ...sheerFabricTotals.map(f => `Sheer Fabric — ${f.name}: ${f.quantity} mtr`),
+  ].join(' | ');
 
   function updExtra(id: string, patch: Partial<ExtraChargeRow>) {
     setCharges((c) => ({ ...c, extras: c.extras.map((r) => (r.id === id ? { ...r, ...patch } : r)) }));
@@ -438,11 +456,27 @@ export default function NewQuotation() {
         <Field label="Description" value={charges.additionalDesc} onChangeText={(t) => setCharges({ ...charges, additionalDesc: t })} placeholder="e.g. Material handling" />
         <Field label="Additional Charges (₹)" value={charges.additionalAmount} onChangeText={(t) => setCharges({ ...charges, additionalAmount: numericInput(t) })} keyboardType="numeric" />
 
-        <Text style={styles.chargeTitle}>Fabric in this quotation</Text>
-        <Text style={styles.formulaNote}>{fabricNote || 'No fabric quantity recorded yet — add it in Measurements.'}</Text>
+        <Text style={styles.chargeTitle}>Fabric Quantity Summary</Text>
+        {mainFabricTotals.length || sheerFabricTotals.length ? (
+          <View style={{ backgroundColor: colors.chipBg, borderRadius: 12, padding: 12, marginTop: 6, marginBottom: 8 }}>
+            {mainFabricTotals.map((f, index) => (
+              <View key={`main-${index}`} style={styles.sumRow}>
+                <Text style={styles.sumLbl}>Main · {f.name}</Text>
+                <Text style={styles.sumVal}>{f.quantity.toFixed(2)} mtr</Text>
+              </View>
+            ))}
+            {sheerFabricTotals.map((f, index) => (
+              <View key={`sheer-${index}`} style={styles.sumRow}>
+                <Text style={styles.sumLbl}>Sheer · {f.name}</Text>
+                <Text style={styles.sumVal}>{f.quantity.toFixed(2)} mtr</Text>
+              </View>
+            ))}
+            <Text style={styles.formulaNote}>Same fabric name measurements are combined. Different fabric names are shown separately.</Text>
+          </View>
+        ) : <Text style={styles.formulaNote}>No fabric details entered yet — add fabric names in Measurements.</Text>}
         {fabricNote ? (
           <Text onPress={() => setCharges({ ...charges, additionalDesc: fabricNote })} style={styles.resetInline}>
-            Use as Additional description
+            Copy fabric summary to Additional description
           </Text>
         ) : null}
         <Field label="Discount — Description" value={charges.discDesc} onChangeText={(t) => setCharges({ ...charges, discDesc: t })} placeholder="Discount" />
