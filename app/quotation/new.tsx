@@ -129,7 +129,7 @@ export default function NewQuotation() {
   const liningItems = useMemo(() => items.filter(i => i.product_type === 'curtains' && i.type !== 'Sheer' && !!i.lining_type), [items]);
   const effectiveCharges = useMemo(() => ({ ...charges, stitchingQty: String(curtainParts || ''), extras: [
     ...liningItems.filter(i => Number(i.lining_price) > 0 && Number(i.lining_quantity ?? i.quantity) > 0).map(i => ({ id: `lining-${i.id}`, description: `${i.lining_type} - ${i.area_name}`, quantity: String(i.lining_quantity ?? i.quantity), amount: String(i.lining_price) })),
-    ...charges.extras.filter(r => !String(r.id).startsWith('lining-')),
+    ...charges.extras.filter(r => !String(r.id).startsWith('lining-') && !/^(Blackout Lining|Semi Lining)\s*-/i.test(r.description)),
   ] }), [charges, curtainParts, liningItems]);
   const bundle = useMemo(() => buildCharges(effectiveCharges), [effectiveCharges]);
   const grandTotal = computeGrandTotal(subtotal, accessoriesTotal, bundle.totals);
