@@ -161,7 +161,10 @@ export function buildQuotationHtml(
           ? `Main: ${main}`
           : it.product_type === 'blinds' ? esc(main) : `Main: ${esc(main)}`)
       : '';
-    const details = [mainHtml, lining ? `Lining: ${esc(lining)}${liningFabric ? ` — ${esc(liningFabric)}` : ''}` : '', it.fabric_area ? `${it.fabric_area} sq.ft` : ''].filter(Boolean);
+    const liningQty = Number((it as any).lining_quantity ?? (lining ? it.quantity : 0)) || 0;
+    const liningRate = Number((it as any).lining_price) || 0;
+    const liningInfo = lining ? `Lining: ${esc(lining)}${liningFabric ? ` — ${esc(liningFabric)}` : ''}${liningQty > 0 ? ` · ${liningQty} mtr` : ''}${liningRate > 0 ? ` · ${money(liningRate)}/mtr` : ''}` : '';
+    const details = [mainHtml, liningInfo, it.fabric_area ? `${it.fabric_area} sq.ft` : ''].filter(Boolean);
     return details.length ? details.join('<br/>') : '-';
   };
   const productStartCols = (template.showSerialColumn ? 1 : 0) + (template.showAreaColumn ? 1 : 0);
