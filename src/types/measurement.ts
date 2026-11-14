@@ -14,6 +14,10 @@ export interface Measurement {
   lining_type?: 'Blackout Lining' | 'Semi Lining';
   /** Separate fabric description for the selected curtain lining. */
   lining_fabric?: string;
+  /** Auto-derived lining metres and editable per-metre rate for curtain combos. */
+  lining_quantity?: number;
+  lining_price?: number;
+  lining_total?: number;
   /** Manual curtain Part value. */
   part?: number;
   /** Measurement unit for blinds/mosquito net. */
