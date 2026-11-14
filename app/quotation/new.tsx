@@ -126,20 +126,13 @@ export default function NewQuotation() {
   const subtotal = useMemo(() => items.reduce((s, i) => s + i.total, 0), [items]);
   const accessoriesTotal = useMemo(() => accRows.reduce((s, r) => s + accTotal(r), 0), [accRows]);
   const curtainParts = useMemo(() => round2(items.filter((i) => i.product_type === 'curtains').reduce((s, i) => s + (i.part || 0), 0)), [items]);
-  const effectiveCharges = useMemo(() => ({ ...charges, stitchingQty: String(curtainParts || '') }), [charges, curtainParts]);
+  const liningItems = useMemo(() => items.filter(i => i.product_type === 'curtains' && i.type !== 'Sheer' && !!i.lining_type), [items]);
+  const effectiveCharges = useMemo(() => ({ ...charges, stitchingQty: String(curtainParts || ''), extras: [
+    ...liningItems.filter(i => Number(i.lining_price) > 0 && Number(i.lining_quantity ?? i.quantity) > 0).map(i => ({ id: `lining-${i.id}`, description: `${i.lining_type} - ${i.area_name}`, quantity: String(i.lining_quantity ?? i.quantity), amount: String(i.lining_price) })),
+    ...charges.extras.filter(r => !String(r.id).startsWith('lining-')),
+  ] }), [charges, curtainParts, liningItems]);
   const bundle = useMemo(() => buildCharges(effectiveCharges), [effectiveCharges]);
   const grandTotal = computeGrandTotal(subtotal, accessoriesTotal, bundle.totals);
-  /* Requirement 5: fabric quantity that belongs in the Other Charges area. */
-  const liningItems = items.filter(i=>i.product_type==='curtains' && !!i.lining_type);
-  const liningNote = liningItems.length ? liningItems.map(i=>`${i.area_name}: ${i.lining_type} · ${i.quantity} mtr`).join(' | ') : '';
-  useEffect(()=>{
-    if(!liningNote)return;
-    setCharges(prev=>{
-      const desc=`Lining Fabric Total · ${liningNote}`;
-      if(prev.additionalDesc===desc)return prev;
-      return {...prev,additionalDesc:desc};
-    });
-  },[liningNote]);
 
   const fabricNote = (() => {
     const mtr = round2(items.filter((i) => i.product_type === 'curtains').reduce((s, i) => s + (i.quantity || 0), 0));
