@@ -176,15 +176,6 @@ export function buildCharges(bundleInput: ChargesBundle): { charges: OtherCharge
       total: transport,
     });
   }
-  if (additional > 0) {
-    charges.push({
-      id: nextId(),
-      description: bundle.additionalDesc || 'Additional Charges',
-      quantity: 1,
-      price: additional,
-      total: additional,
-    });
-  }
   for (const row of extras) {
     if (row.total === 0) continue;
     charges.push({
@@ -194,6 +185,9 @@ export function buildCharges(bundleInput: ChargesBundle): { charges: OtherCharge
       price: row.price,
       total: row.total,
     });
+  }
+  if (additional > 0) {
+    charges.push({ id: nextId(), description: bundle.additionalDesc || 'Additional Charges', quantity: 1, price: additional, total: additional });
   }
   if (discount > 0) {
     charges.push({ id: nextId(), description: 'Discount', quantity: 1, price: -discount, total: -discount });
@@ -289,12 +283,14 @@ export function bundleFromChargesWithExtras(charges: OtherCharge[] | null | unde
   const list = charges ?? [];
   const bundle = bundleFromCharges(list);
   const custom = list.filter(isCustom);
-  const [first, ...rest] = custom;
+  const lining = custom.filter(c => /^Blackout Lining\s*-|^Semi Lining\s*-/i.test(c.description));
+  const other = custom.filter(c => !lining.includes(c));
+  const [first, ...rest] = other;
   return {
     ...bundle,
     additionalDesc: first?.description ?? '',
     additionalAmount: first ? String(first.total) : '',
-    extras: rest.map((c, i) => ({
+    extras: [...lining, ...rest].map((c, i) => ({
       id: `x${i}-${c.id}`,
       description: c.description,
       quantity: String(c.quantity ?? 1),
