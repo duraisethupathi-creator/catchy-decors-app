@@ -41,6 +41,7 @@ interface Row {
   fabricArea: string;
   liningType: '' | 'Blackout Lining' | 'Semi Lining';
   liningFabric: string;
+  liningPrice: string;
   /** Wallpaper: user-controlled bonus-roll toggle (enabled when D ≥ 2) */
   wallBonusRoll: boolean;
   part: string;
@@ -122,6 +123,7 @@ export default function Measurements() {
               fabricArea: d.fabric_area ? String(d.fabric_area) : '',
               liningType: d.lining_type ?? '',
               liningFabric: d.lining_fabric ?? '',
+              liningPrice: String(d.lining_price ?? ''),
               wallBonusRoll: false,
               part: d.part ? String(d.part) : '',
               measurementUnit: d.measurement_unit ?? 'inch',
@@ -148,7 +150,7 @@ export default function Measurements() {
     const id = uid();
     setRows((r) => [
       ...r,
-      { id, product, area: '', type: product==='curtains' ? 'Main' : (def.typeOptions[0] ?? ''), width: '', height: '', price: '', manualFabricMtr: '', fabricType: '', fabricArea: '', liningType: '', liningFabric: '', wallBonusRoll: false, part: '', measurementUnit: 'inch', manualQuantity: '', additionalSqft: '', description: '', frameColor: '', openMethod: 'Bottom Open', leftOpenCount: '', rightOpenCount: '', doorSplitCount: '' },
+      { id, product, area: '', type: product==='curtains' ? 'Main' : (def.typeOptions[0] ?? ''), width: '', height: '', price: '', manualFabricMtr: '', fabricType: '', fabricArea: '', liningType: '', liningFabric: '', liningPrice: '', wallBonusRoll: false, part: '', measurementUnit: 'inch', manualQuantity: '', additionalSqft: '', description: '', frameColor: '', openMethod: 'Bottom Open', leftOpenCount: '', rightOpenCount: '', doorSplitCount: '' },
     ]);
     setActiveId(id);
     setSelectedProducts((p) => (p.includes(product) ? p : [...p, product]));
@@ -166,7 +168,7 @@ export default function Measurements() {
     const existing=rows.find(r=>r.product==='curtains'&&r.type==='Sheer'&&r.area.trim().toLowerCase()===source.area.trim().toLowerCase());
     if(existing){ setActiveId(existing.id); toast('Sheer already added for this area'); return; }
     const id=uid();
-    const copy:Row={...source,id,type:'Sheer',price:'',fabricType:''};
+    const copy:Row={...source,id,type:'Sheer',price:'',fabricType:'',liningType:'',liningFabric:'',liningPrice:''};
     setRows(r=>[...r,copy]); setActiveId(id); setSelectedProducts(p=>p.includes('curtains')?p:[...p,'curtains']);
     toast('Sheer size copied from main Curtain');
   }
@@ -251,6 +253,9 @@ export default function Measurements() {
         fabric_area: 0,
         lining_type: r.liningType || undefined,
         lining_fabric: r.liningFabric.trim(),
+        lining_quantity: r.product === 'curtains' && r.type !== 'Sheer' && r.liningType ? q : 0,
+        lining_price: Number(r.liningPrice) || 0,
+        lining_total: calculateTotal(r.product === 'curtains' && r.type !== 'Sheer' && r.liningType ? q : 0, r.liningPrice),
         total: calculateTotal(q, r.price),
       };
     });
@@ -329,8 +334,8 @@ export default function Measurements() {
           {isVelcroNet(row) ? (() => { const cut = velcroCut(row); return <View style={styles.wpBox}><Text style={styles.wpFormula}>VELCRO NET CUTTING SIZE (+2 inch allowance)</Text><Text style={styles.wpBonusText}>Original: {row.width} × {row.height} {row.measurementUnit}</Text><Text style={styles.wpBonusText}>Cutting: {cut.width.toFixed(1)} × {cut.height.toFixed(1)} {row.measurementUnit}</Text><Text style={styles.wpBonusText}>Material required: {cut.areaSqft.toFixed(2)} sq.ft</Text><Text style={styles.wpNote}>Rotation and panel splitting are allowed for both stock widths</Text></View>; })() : null}
           {row.product==='mosquito_net' ? <><Field label="Additional Sq.ft (Manual)" value={row.additionalSqft} onChangeText={t=>updateRow(row.id,{additionalSqft:numericInput(t)})} keyboardType="numeric" placeholder="0"/><Field label="Description" value={row.description} onChangeText={t=>updateRow(row.id,{description:t})} placeholder="Enter mosquito net details"/>{isDoorNet(row.type) ? <><Field label="Frame Color" value={row.frameColor} onChangeText={t=>updateRow(row.id,{frameColor:t})} placeholder="e.g. White / Black / Brown"/><Text style={styles.miniLabel}>Open Method</Text><ChipGroup options={['Bottom Open','Left Open','Right Open']} selected={row.openMethod} onSelect={v=>updateRow(row.id,{openMethod:v as Row['openMethod']})}/>{row.openMethod==='Left Open' ? <Field label="No. of Doors Opening Left" value={row.leftOpenCount} onChangeText={t=>updateRow(row.id,{leftOpenCount:numericInput(t,false)})} keyboardType="numeric" placeholder="Enter count"/> : null}{row.openMethod==='Right Open' ? <Field label="No. of Doors Opening Right" value={row.rightOpenCount} onChangeText={t=>updateRow(row.id,{rightOpenCount:numericInput(t,false)})} keyboardType="numeric" placeholder="Enter count"/> : null}<Field label="Door Split Count" value={row.doorSplitCount} onChangeText={t=>updateRow(row.id,{doorSplitCount:numericInput(t,false)})} keyboardType="numeric" placeholder="How many door panels?"/></> : null}</> : null}
           {row.product==='curtains'&&row.type!=='Sheer'?<><View style={styles.comboHead}><View><Text style={styles.comboTitle}>Smart Curtain Combo</Text><Text style={styles.comboSub}>Main size → optional layers auto copy</Text></View><Ionicons name="sparkles" size={20} color={colors.orange}/></View><View style={{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:8}}><TouchableOpacity style={styles.layerChip} onPress={()=>addCurtainLayer('Sheer')}><Text style={styles.layerChipText}>+ Sheer · Copy Size</Text></TouchableOpacity>{(['Blackout Lining','Semi Lining'] as const).map(k=>{const on=row.liningType===k;return <TouchableOpacity key={k} style={[styles.layerChip,on&&{backgroundColor:colors.navy}]} onPress={()=>updateRow(row.id,{liningType:on?'':k})}><Text style={[styles.layerChipText,on&&{color:'#fff'}]}>{on?'✓ ':''}{k}</Text></TouchableOpacity>})}</View></>:null}
-          {row.product === 'blinds' && row.type.toLowerCase() === 'roman' ? <><Field label="Fabric Required (mtr)" value={row.manualFabricMtr} onChangeText={t=>updateRow(row.id,{manualFabricMtr:numericInput(t)})} keyboardType="numeric" placeholder="Enter fabric metres manually"/><Field label="Fabric Details" value={row.fabricType} onChangeText={t=>updateRow(row.id,{fabricType:t})} placeholder="Enter Roman blind fabric details"/></> : row.product === 'curtains' ? <Field label="Main Curtains Fabric Details" value={row.fabricType} onChangeText={t=>updateRow(row.id,{fabricType:t})} placeholder="Enter main curtain fabric details"/> : null}
-          {row.product==='curtains' && row.liningType ? <Field label={row.liningType + " Fabric Details"} value={row.liningFabric} onChangeText={t=>updateRow(row.id,{liningFabric:t})} placeholder="Enter separate lining fabric details"/> : null}
+          {row.product === 'blinds' && row.type.toLowerCase() === 'roman' ? <><Field label="Fabric Required (mtr)" value={row.manualFabricMtr} onChangeText={t=>updateRow(row.id,{manualFabricMtr:numericInput(t)})} keyboardType="numeric" placeholder="Enter fabric metres manually"/><Field label="Fabric Details" value={row.fabricType} onChangeText={t=>updateRow(row.id,{fabricType:t})} placeholder="Enter Roman blind fabric details"/></> : row.product === 'curtains' ? <Field label={row.type === 'Sheer' ? 'Sheer Fabric Details' : 'Main Curtains Fabric Details'} value={row.fabricType} onChangeText={t=>updateRow(row.id,{fabricType:t})} placeholder={row.type === 'Sheer' ? 'Enter sheer curtain fabric details' : 'Enter main curtain fabric details'}/> : null}
+          {row.product==='curtains' && row.type!=='Sheer' && row.liningType ? <View style={styles.wpBox}><Text style={styles.wpFormula}>{row.liningType} Quantity</Text><Text style={styles.wpBonusText}>{qty.toFixed(2)} mtr · copied from Main Curtain quantity</Text><Field label={`${row.liningType} Rate (₹ / mtr)`} value={row.liningPrice} onChangeText={t=>updateRow(row.id,{liningPrice:numericInput(t)})} keyboardType="numeric" placeholder="Enter lining rate per metre"/><Text style={styles.wpFormula}>Lining Total: {formatINR(calculateTotal(qty,row.liningPrice))}</Text></View> : null}
           <Field label="Price (₹)" value={row.price} onChangeText={t=>updateRow(row.id,{price:numericInput(t)})} keyboardType="numeric" placeholder="0"/>
           <View style={styles.preview}><Text style={styles.previewLabel}>{row.product === 'mosquito_net' ? 'AUTO SQ.FT + ADDITIONAL SQ.FT' : row.product === 'blinds' && row.type.toLowerCase() === 'roman' ? 'MANUAL FABRIC QUANTITY' : 'LIVE CALCULATION'}</Text><View style={{flexDirection:'row',justifyContent:'space-between',marginTop:6}}><Text style={styles.previewQty}>Quantity ({row.product === 'blinds' && row.type.toLowerCase() === 'roman' ? 'mtr' : def.qtyUnit}): <Text style={styles.previewVal}>{qty}</Text></Text><Text style={styles.previewQty}>Total: <Text style={styles.previewVal}>{formatINR(tot)}</Text></Text></View></View>
           <View style={{flexDirection:'row',gap:8,marginTop:12}}><Button title="Delete" icon="trash-outline" variant="outline" style={{flex:1}} onPress={()=>removeRow(row.id)}/><Button title="Add to List" icon="add" variant="accent" style={{flex:2}} onPress={()=>{setActiveId('');toast('Item added · Auto saved');}}/></View>
