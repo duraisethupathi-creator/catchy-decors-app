@@ -66,11 +66,13 @@ const velcroCut = (row: Row) => {
   const hIn = (Number(row.height) || 0) / factor;
   const cutWIn = wIn + 2;
   const cutHIn = hIn + 2;
-  const areaSqft = (cutWIn * cutHIn) / 144;
+  const actualAreaSqft = (cutWIn * cutHIn) / 144;
   return {
     width: row.measurementUnit === 'mm' ? cutWIn * 25.4 : cutWIn,
     height: row.measurementUnit === 'mm' ? cutHIn * 25.4 : cutHIn,
-    areaSqft: Math.round(areaSqft * 100) / 100,
+    // Velcro Net is charged in whole sq.ft per window: always round upward.
+    // Example: 19.15 -> 20 and 11.30 -> 12.
+    areaSqft: Math.ceil(actualAreaSqft),
   };
 };
 const readMosquitoMeta = (value?: string) => {
