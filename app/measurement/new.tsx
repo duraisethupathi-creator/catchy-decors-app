@@ -341,7 +341,7 @@ export default function Measurements() {
             {row.type!=='Sheer' ? <>
               <View style={styles.comboHead}><View><Text style={styles.comboTitle}>4. Lining Details (Optional)</Text><Text style={styles.comboSub}>No separate lining fabric name needed</Text></View><Ionicons name="albums-outline" size={20} color={colors.orange}/></View>
               <ChipGroup options={['No Lining','Blackout Lining','Semi Lining']} selected={row.liningType||'No Lining'} onSelect={v=>updateRow(row.id,{liningType:v==='No Lining'?'':v as Row['liningType']})}/>
-              {row.liningType ? <View style={styles.wpBox}><Text style={styles.wpFormula}>LINING QUANTITY · {qty.toFixed(2)} mtr</Text><Field label="Lining Rate (₹ / mtr)" value={row.liningPrice} onChangeText={t=>updateRow(row.id,{liningPrice:numericInput(t)})} keyboardType="decimal-pad" placeholder="e.g. 100"/><Text style={styles.wpFormula}>Lining Total: {formatINR(calculateTotal(qty,row.liningPrice))}</Text></View> : null}
+              {row.liningType ? <View style={styles.wpBox}><Text style={styles.wpFormula}>{row.liningType.toUpperCase()} REQUIRED · {qty.toFixed(2)} mtr</Text><Text style={styles.comboSub}>Lining rate and total will be entered in the Other Charges page.</Text></View> : null}
             </> : null}
             <View style={styles.comboHead}><View><Text style={styles.comboTitle}>{row.type==='Sheer'?'Sheer':'Main'} Curtain Price</Text><Text style={styles.comboSub}>Enter the selling rate for this curtain</Text></View></View>
           </> : row.product==='blinds' ? <>
