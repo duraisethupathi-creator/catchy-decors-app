@@ -453,7 +453,7 @@ export default function Preview() {
                 </TouchableOpacity>
               </View>
               <Field label="Area Name" value={it.area_name} onChangeText={(t) => updItem(it.id, { area_name: t })} placeholder="e.g. Living Room Window 1" />
-              <Field label={def.typeLabel} value={it.type ?? ''} onChangeText={(t) => updItem(it.id, { type: t })} />
+              {it.product_type !== 'headboard' ? <Field label={def.typeLabel} value={it.type ?? ''} onChangeText={(t) => updItem(it.id, { type: t })} /> : null}
               {it.product_type === 'curtains' ? <Field label="Part" value={String(it.part ?? '')} onChangeText={(t) => updItem(it.id, { part: toNum(numericInput(t)) })} keyboardType="numeric" /> : null}
               {(it.product_type === 'blinds' || it.product_type === 'mosquito_net') ? (
                 <>
@@ -486,7 +486,10 @@ export default function Preview() {
                     <Field label="Door Split Count" value={String(meta.doorSplitCount ?? '')} onChangeText={(t) => updItem(it.id, { fabric_type: writeMosquitoMeta(it, { doorSplitCount: toNum(numericInput(t, false)) }) })} keyboardType="numeric" />
                   </> : null}
                 </View>;
-              })() : <View style={{ flexDirection: 'row' }}>
+              })() : it.product_type === 'headboard' ? <View>
+                <Field label="Fabric Details" value={it.fabric_type ?? ''} onChangeText={(t) => updItem(it.id, { fabric_type: t })} placeholder="e.g. Premium Velvet – Grey" />
+                <Field label="Fabric Required (metres)" value={String(it.fabric_quantity_mtr ?? '')} onChangeText={(t) => updItem(it.id, { fabric_quantity_mtr: toNum(numericInput(t)) })} keyboardType="decimal-pad" />
+              </View> : <View style={{ flexDirection: 'row' }}>
                 <View style={{ flex: 1, marginRight: 8 }}>
                   <Field label="Fabric Details" value={it.fabric_type ?? ''} onChangeText={(t) => updItem(it.id, { fabric_type: t })} placeholder="e.g. Cotton, Blackout" />
                 </View>
@@ -508,7 +511,7 @@ export default function Preview() {
                   <Text style={styles.resetText}>↻ Formula</Text>
                 </TouchableOpacity>
               </View>
-              <Field label="Price / unit (₹)" value={String(it.price)} onChangeText={(t) => updItem(it.id, { price: toNum(numericInput(t)) })} keyboardType="numeric" />
+              <Field label={it.product_type === 'headboard' ? 'Rate / sq.ft (₹)' : 'Price / unit (₹)'} value={String(it.price)} onChangeText={(t) => updItem(it.id, { price: toNum(numericInput(t)) })} keyboardType="decimal-pad" />
               {it.product_type === 'mosquito_net' && String(it.type || '').trim().toLowerCase() === 'velcro net' ? (
                 <View style={{ paddingVertical: 10 }}>
                   <Text style={{ color: colors.textMuted, fontWeight: '700' }}>GST: 0% — Velcro Net</Text>
