@@ -46,6 +46,10 @@
       "supabaseAnonKey": "",
       "googleAndroidClientId": "19095519328-qhdjqe9gkbm85jcfv3prar25mm71lhq9.apps.googleusercontent.com",
       "googleWebClientId": "19095519328-u67nd4pelmj34bg9p3boqnkg7d23t55p.apps.googleusercontent.com"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
     }
   }
 }
