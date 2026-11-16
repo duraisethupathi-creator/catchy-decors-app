@@ -121,7 +121,11 @@ export default function EditQuotation() {
   const subtotal = useMemo(() => items.reduce((s, i) => s + i.total, 0), [items]);
   const accessoriesTotal = useMemo(() => accRows.reduce((s, r) => s + accTotal(r), 0), [accRows]);
   const curtainParts = useMemo(() => round2(items.filter((i) => i.product_type === 'curtains').reduce((s, i) => s + (i.part || 0), 0)), [items]);
-  const effectiveCharges = useMemo(() => ({ ...charges, stitchingQty: String(curtainParts || '') }), [charges, curtainParts]);
+  const liningItems = useMemo(() => items.filter(i => i.product_type === 'curtains' && i.type !== 'Sheer' && !!i.lining_type), [items]);
+  const effectiveCharges = useMemo(() => ({ ...charges, stitchingQty: String(curtainParts || ''), extras: [
+    ...liningItems.filter(i => Number(i.lining_price) > 0 && Number(i.lining_quantity ?? i.quantity) > 0).map(i => ({ id: `lining-${i.id}`, description: `${i.lining_type} - ${i.area_name}`, quantity: String(i.lining_quantity ?? i.quantity), amount: String(i.lining_price) })),
+    ...charges.extras.filter(r => !String(r.id).startsWith('lining-') && !/^(Blackout Lining|Semi Lining)\s*-/i.test(r.description)),
+  ] }), [charges, curtainParts, liningItems]);
   const bundle = useMemo(() => buildCharges(effectiveCharges), [effectiveCharges]);
   const grandTotal = computeGrandTotal(subtotal, accessoriesTotal, bundle.totals);
   const fabricNote = (() => {
@@ -463,6 +467,20 @@ export default function EditQuotation() {
         <Text style={styles.chargeTitle}>Additional</Text>
         <Field label="Description" value={charges.additionalDesc} onChangeText={(t) => setCharges({ ...charges, additionalDesc: t })} placeholder="e.g. Material handling" />
         <Field label="Additional Charges (₹)" value={charges.additionalAmount} onChangeText={(t) => setCharges({ ...charges, additionalAmount: numericInput(t) })} keyboardType="numeric" />
+
+        <Text style={styles.chargeTitle}>Lining Charges</Text>
+        {liningItems.length ? liningItems.map((item) => {
+          const qty = Number(item.lining_quantity ?? item.quantity) || 0;
+          const rate = Number(item.lining_price) || 0;
+          return <View key={item.id} style={{ backgroundColor: colors.chipBg, borderRadius: 10, padding: 10, marginTop: 8 }}>
+            <Text style={{ color: colors.navy, fontWeight: '800', marginBottom: 6 }}>{item.lining_type} — {item.area_name || 'Curtain'}</Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flex: 1 }}><Field label="Required (mtr)" value={qty.toFixed(2)} editable={false}/></View>
+              <View style={{ flex: 1 }}><Field label="Rate / mtr (₹)" value={String(item.lining_price ?? '')} onChangeText={(v) => setItems(current => current.map(x => x.id === item.id ? { ...x, lining_price: Number(numericInput(v)) || 0, lining_total: calculateTotal(qty, v) } : x))} keyboardType="decimal-pad" placeholder="Enter rate"/></View>
+            </View>
+            <Text style={styles.formulaNote}>{qty.toFixed(2)} mtr × ₹{rate.toFixed(2)} = {formatINR(calculateTotal(qty, rate))}</Text>
+          </View>;
+        }) : <Text style={styles.formulaNote}>Main Curtain-ல் Blackout அல்லது Semi Lining select செய்தால் இங்கே வரும்.</Text>}
 
         <Text style={styles.chargeTitle}>Fabric in this quotation</Text>
         <Text style={styles.formulaNote}>{fabricNote || 'No fabric quantity recorded yet — add it in Measurements.'}</Text>
