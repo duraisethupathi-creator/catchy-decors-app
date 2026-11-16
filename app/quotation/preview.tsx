@@ -212,7 +212,11 @@ export default function Preview() {
     setDirty(true);
   }
   const curtainParts = round2((draft?.items ?? []).filter((i) => i.product_type === 'curtains').reduce((s, i) => s + (Number(i.part) || 0), 0));
-  const effectiveCharges: ChargesBundle = { ...charges, stitchingQty: charges.stitchingQty.trim() || String(curtainParts || '') };
+  const liningItems = (draft?.items ?? []).filter(i => i.product_type === 'curtains' && i.type !== 'Sheer' && !!i.lining_type);
+  const effectiveCharges: ChargesBundle = { ...charges, stitchingQty: charges.stitchingQty.trim() || String(curtainParts || ''), extras: [
+    ...liningItems.filter(i => Number(i.lining_price) > 0 && Number(i.lining_quantity ?? i.quantity) > 0).map(i => ({ id: `lining-${i.id}`, description: `${i.lining_type} - ${i.area_name}`, quantity: String(i.lining_quantity ?? i.quantity), amount: String(i.lining_price) })),
+    ...charges.extras.filter(r => !String(r.id).startsWith('lining-') && !/^(Blackout Lining|Semi Lining)\s*-/i.test(r.description)),
+  ] };
 
   function resetStitchingQty() {
     setCharges((c) => ({ ...c, stitchingQty: String(curtainParts || '') }));
@@ -593,6 +597,20 @@ export default function Preview() {
         <Field label="Transport (₹)" value={charges.transport} onChangeText={(t) => { setCharges({ ...charges, transport: numericInput(t) }); setDirty(true); }} keyboardType="numeric" />
         <Field label="Additional — Description" value={charges.additionalDesc} onChangeText={(t) => { setCharges({ ...charges, additionalDesc: t }); setDirty(true); }} />
         <Field label="Additional Charges (₹)" value={charges.additionalAmount} onChangeText={(t) => { setCharges({ ...charges, additionalAmount: numericInput(t) }); setDirty(true); }} keyboardType="numeric" />
+
+        <Text style={styles.extraTitle}>Lining Charges</Text>
+        {liningItems.length ? liningItems.map((item) => {
+          const qty = Number(item.lining_quantity ?? item.quantity) || 0;
+          const rate = Number(item.lining_price) || 0;
+          return <View key={item.id} style={{ backgroundColor: colors.chipBg, borderRadius: 10, padding: 10, marginTop: 8 }}>
+            <Text style={{ color: colors.navy, fontWeight: '800', marginBottom: 6 }}>{item.lining_type} — {item.area_name || 'Curtain'}</Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flex: 1 }}><Field label="Required (mtr)" value={qty.toFixed(2)} editable={false}/></View>
+              <View style={{ flex: 1 }}><Field label="Rate / mtr (₹)" value={String(item.lining_price ?? '')} onChangeText={(v) => { const rateValue = toNum(numericInput(v)); setDraft(current => current ? ({ ...current, items: current.items.map(x => x.id === item.id ? { ...x, lining_price: rateValue, lining_total: calculateTotal(qty, rateValue) } : x) }) : current); setDirty(true); }} keyboardType="decimal-pad" placeholder="Enter rate"/></View>
+            </View>
+            <Text style={styles.formulaNote}>{qty.toFixed(2)} mtr × ₹{rate.toFixed(2)} = {formatINR(calculateTotal(qty, rate))}</Text>
+          </View>;
+        }) : <Text style={styles.formulaNote}>Main Curtain-ல் Blackout அல்லது Semi Lining select செய்தால் இங்கே வரும்.</Text>}
 
         <Field label="Other Charges — Description (printed on documents)" value={chargesDesc} onChangeText={(t) => { setChargesDesc(t); setDirty(true); }} placeholder="e.g. Other Charges" />
         <Text style={styles.formulaNote}>{fabricNote || 'No fabric quantity recorded in the measurements yet.'}</Text>
