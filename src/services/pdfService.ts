@@ -164,7 +164,10 @@ export function buildQuotationHtml(
     const liningQty = Number((it as any).lining_quantity ?? (lining ? it.quantity : 0)) || 0;
     const liningRate = Number((it as any).lining_price) || 0;
     const liningInfo = lining ? `Lining: ${esc(lining)}${liningFabric ? ` — ${esc(liningFabric)}` : ''}${liningQty > 0 ? ` · ${liningQty} mtr` : ''}${liningRate > 0 ? ` · ${money(liningRate)}/mtr` : ''}` : '';
-    const details = [mainHtml, liningInfo, it.fabric_area ? `${it.fabric_area} sq.ft` : ''].filter(Boolean);
+    const headboardFabric = it.product_type === 'headboard' && Number((it as any).fabric_quantity_mtr) > 0
+      ? `Fabric required: ${Number((it as any).fabric_quantity_mtr)} mtr`
+      : '';
+    const details = [mainHtml, liningInfo, it.fabric_area ? `${it.fabric_area} sq.ft` : '', headboardFabric].filter(Boolean);
     return details.length ? details.join('<br/>') : '-';
   };
   const productStartCols = (template.showSerialColumn ? 1 : 0) + (template.showAreaColumn ? 1 : 0);
@@ -193,7 +196,7 @@ export function buildQuotationHtml(
           if (template.showSerialColumn) cells.push(`<td>${serials[i]}</td>`);
           if (template.showAreaColumn) cells.push(`<td style="text-align:left">${esc(it.area_name)}</td>`);
           cells.push(`<td style="text-align:left">${esc(getProduct(it.product_type).name)}${it.product_type === 'mosquito_net' && mosquitoDescription(it) ? `<br/><small>${mosquitoDescription(it)}</small>` : ''}</td>`);
-          if (template.showTypeColumn) cells.push(`<td style="text-align:left">${esc(tOpt(it.type))}</td>`);
+          if (template.showTypeColumn) cells.push(`<td style="text-align:left">${it.product_type === 'headboard' ? '' : esc(tOpt(it.type))}</td>`);
           if (template.showFabricColumn) cells.push(`<td style="text-align:left">${fabricCell(it)}</td>`);
           if (template.showWidthColumn) cells.push(`<td>${it.width || '-'}</td>`);
           if (template.showHeightColumn) cells.push(`<td>${it.height || '-'}</td>`);
