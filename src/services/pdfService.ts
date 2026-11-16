@@ -159,7 +159,7 @@ export function buildQuotationHtml(
     const mainHtml = main
       ? (it.product_type === 'mosquito_net'
           ? `Main: ${main}`
-          : it.product_type === 'blinds' ? esc(main) : `Main: ${esc(main)}`)
+          : it.product_type === 'blinds' || it.product_type === 'headboard' ? esc(main) : `Main: ${esc(main)}`)
       : '';
     const liningQty = Number((it as any).lining_quantity ?? (lining ? it.quantity : 0)) || 0;
     const liningRate = Number((it as any).lining_price) || 0;
