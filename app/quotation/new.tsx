@@ -456,6 +456,20 @@ export default function NewQuotation() {
         <Field label="Description" value={charges.additionalDesc} onChangeText={(t) => setCharges({ ...charges, additionalDesc: t })} placeholder="e.g. Material handling" />
         <Field label="Additional Charges (₹)" value={charges.additionalAmount} onChangeText={(t) => setCharges({ ...charges, additionalAmount: numericInput(t) })} keyboardType="numeric" />
 
+        <Text style={styles.chargeTitle}>Lining Charges</Text>
+        {liningItems.length ? liningItems.map((item) => {
+          const qty = Number(item.lining_quantity ?? item.quantity) || 0;
+          const rate = Number(item.lining_price) || 0;
+          return <View key={item.id} style={{ backgroundColor: colors.chipBg, borderRadius: 10, padding: 10, marginTop: 8 }}>
+            <Text style={{ color: colors.navy, fontWeight: '800', marginBottom: 6 }}>{item.lining_type} — {item.area_name || 'Curtain'}</Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flex: 1 }}><Field label="Required (mtr)" value={qty.toFixed(2)} editable={false}/></View>
+              <View style={{ flex: 1 }}><Field label="Rate / mtr (₹)" value={String(item.lining_price ?? '')} onChangeText={(v) => setItems(current => current.map(x => x.id === item.id ? { ...x, lining_price: Number(numericInput(v)) || 0, lining_total: calculateTotal(qty, v) } : x))} keyboardType="decimal-pad" placeholder="Enter rate"/></View>
+            </View>
+            <Text style={styles.formulaNote}>{qty.toFixed(2)} mtr × ₹{rate.toFixed(2)} = {formatINR(calculateTotal(qty, rate))}</Text>
+          </View>;
+        }) : <Text style={styles.formulaNote}>Main Curtain-ல் Blackout அல்லது Semi Lining select செய்தால் இங்கே வரும்.</Text>}
+
         <Text style={styles.chargeTitle}>Fabric Quantity Summary</Text>
         {mainFabricTotals.length || sheerFabricTotals.length ? (
           <View style={{ backgroundColor: colors.chipBg, borderRadius: 12, padding: 12, marginTop: 6, marginBottom: 8 }}>
