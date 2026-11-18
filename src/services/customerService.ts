@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { loadAll, saveAll, queueForSync, uuid } from './db';
+import { loadAll, saveAll, queueForSync, queueDeleteForSync, uuid } from './db';
+import { getSession } from './authService';
 import type { Customer } from '../types/customer';
 
 const STORE = 'cd_customers';
@@ -53,9 +54,13 @@ export async function saveCustomer(input: Partial<Customer> & { name: string; ph
 }
 
 export async function deleteCustomer(id: string): Promise<void> {
+  const session = await getSession();
+  if (!session || session.role !== 'admin') throw new Error('Only an Admin can delete a customer.');
   const rows = await getCustomers();
+  if (!rows.some((c) => c.id === id)) return;
   await saveAll(STORE, rows.filter((c) => c.id !== id));
   await AsyncStorage.removeItem(`cd_customers_${id}`);
+  await queueDeleteForSync('customers', id);
 }
 
 export async function countCustomers(): Promise<number> {
