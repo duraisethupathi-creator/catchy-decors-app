@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { defaultTemplate } from '../services/settingsService';
-import { allocateQuotationSequence, isSupabaseConfigured } from '../services/supabaseClient';
+import { allocateQuotationSequence } from '../services/supabaseClient';
 import { formatQuotationNumber } from './numbering';
 import type { QuotationTemplate } from '../types/settings';
 
@@ -90,18 +90,23 @@ export async function nextQuotationNumber(): Promise<string> {
   const t = await loadTemplate();
   const year = new Date().getFullYear();
   const startNumber = Math.max(1, Math.floor(t.startNumber) || 1);
+  const allocated = await allocateQuotationSequence(
+    (t.prefix ?? '').trim(),
+    t.includeYear ? year : 0,
+    Math.max(1, Math.floor(t.startNumber) || 1)
+  );
   let seq: number;
-  if (isSupabaseConfigured()) {
-    const allocated = await allocateQuotationSequence((t.prefix ?? '').trim(), year, startNumber);
-    if (!allocated.ok || !allocated.sequence) {
-      throw new Error(
-        'Could not reserve a unique quotation number from Supabase. Apply the quotation sequence SQL migration in Supabase, then try again. ' +
-        (allocated.error ?? '')
-      );
-    }
+  if (allocated.ok && allocated.sequence) {
     seq = allocated.sequence;
-  } else {
+  } else if (allocated.error === 'not-configured') {
+    // Offline-only fallback. When cloud is configured, never fall back to a
+    // device-local number because that can create duplicates across devices.
     seq = await nextSequence(t, year);
+  } else {
+    throw new Error(
+      'Could not reserve a unique quotation number from Supabase. Apply the quotation sequence SQL migration in Supabase, then try again. ' +
+      (allocated.error ?? '')
+    );
   }
   await AsyncStorage.setItem(KEY, JSON.stringify({ year, seq }));
   memorySeq = seq;
