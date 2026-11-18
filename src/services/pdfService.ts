@@ -97,7 +97,7 @@ function mosquitoDescription(it: { product_type: string; fabric_type?: string })
   try {
     const m = JSON.parse(it.fabric_type || '');
     if (m?.__mosquitoMeta !== 1) return '';
-    return [m.description, m.frameColor ? `Frame: ${m.frameColor}` : '', m.openMethod ? `Open: ${m.openMethod}` : '', m.openMethod === 'Left Open' && m.leftOpenCount ? `Left opening doors: ${m.leftOpenCount}` : '', m.openMethod === 'Right Open' && m.rightOpenCount ? `Right opening doors: ${m.rightOpenCount}` : '', m.doorSplitCount ? `Door split: ${m.doorSplitCount}` : '', Number(m.additionalSqft) > 0 ? `Additional: ${m.additionalSqft} sq.ft` : ''].filter(Boolean).map((v) => esc(String(v))).join('<br/>');
+    return [m.description, m.frameColor ? `Frame: ${m.frameColor}` : '', m.openMethod ? `Open: ${m.openMethod}` : '', m.leftOpenCount ? `Left open count: ${m.leftOpenCount}` : '', m.rightOpenCount ? `Right open count: ${m.rightOpenCount}` : '', m.doorSplitCount ? `Door split: ${m.doorSplitCount}` : '', Number(m.additionalSqft) > 0 ? `Additional: ${m.additionalSqft} sq.ft` : ''].filter(Boolean).map((v) => esc(String(v))).join('<br/>');
   } catch { return ''; }
 }
 
