@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loadAll, saveAll, queueForSync, queueDeleteForSync, uuid } from './db';
 import { appendMeasurements, appendAccessories, clearDraftMeasurements, clearDraftAccessories, clearChargesDraft } from './measurementService';
+import { getSession } from './authService';
 import { calculateFitting, calculateStitching, round2 } from '../utils/calculations';
 import type { Customer } from '../types/customer';
 import type { Measurement, Accessory, OtherCharge } from '../types/measurement';
@@ -134,10 +135,14 @@ export async function updateQuotationStatus(id: string, status: QuotationStatus)
 }
 
 export async function deleteQuotation(id: string): Promise<void> {
+  const session = await getSession();
+  if (!session || session.role !== 'admin') {
+    throw new Error('Only an Admin can delete a quotation.');
+  }
   const rows = await getQuotations();
+  if (!rows.some((q) => q.id === id)) return;
   await saveAll(STORE, rows.filter((q) => q.id !== id));
-  // Remove the per-record payload first. The queued missing payload is the
-  // tombstone that syncWithSupabase() uses to delete this quotation in cloud.
+  // Keep the existing explicit admin confirmation in the UI and enforce role again here.
   await AsyncStorage.removeItem(`cd_quotations_${id}`);
   await queueDeleteForSync('quotations', id);
 }
