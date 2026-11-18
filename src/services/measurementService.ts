@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { loadAll, saveAll, queueForSync, uuid } from './db';
+import { loadAll, saveAll, queueForSync, queueDeleteForSync, uuid } from './db';
+import { getSession } from './authService';
 import { calcQuantityFor, calculateTotal } from '../utils/calculations';
 import { getProduct } from '../constants/products';
 import type { ProductKey } from '../constants/products';
@@ -69,9 +70,13 @@ export async function appendMeasurements(rows: Measurement[]): Promise<void> {
 }
 
 export async function deleteMeasurement(id: string): Promise<void> {
+  const session = await getSession();
+  if (!session || session.role !== 'admin') throw new Error('Only an Admin can delete a measurement.');
   const all = await getAllMeasurements();
+  if (!all.some((m) => m.id === id)) return;
   await saveAll(MEAS_STORE, all.filter((m) => m.id !== id));
   await AsyncStorage.removeItem(`cd_measurements_${id}`);
+  await queueDeleteForSync('measurements', id);
 }
 
 export async function saveAccessories(customerId: string, rows: Accessory[]): Promise<void> {
