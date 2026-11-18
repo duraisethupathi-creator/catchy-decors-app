@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { queueForSync, uuid } from './db';
+import { queueForSync, queueDeleteForSync, uuid } from './db';
+import { getSession } from './authService';
 
 export type PaymentMode = 'Cash' | 'UPI' | 'Bank';
 export type PaymentType = 'advance' | 'regular';
@@ -13,7 +14,7 @@ export async function addPayment(input:Omit<PaymentEntry,'id'|'date'>):Promise<P
 
 export async function hasAdvancePayment(quotationId:string):Promise<boolean>{ return (await getPaymentsForQuotation(quotationId)).some(p=>p.type==='advance'); }
 export async function updatePayment(id:string, amount:number, mode:PaymentMode):Promise<PaymentEntry|null>{ const rows=await getPayments(); const i=rows.findIndex(p=>p.id===id); if(i<0)return null; rows[i]={...rows[i],amount,mode,updated_at:new Date().toISOString()}; await AsyncStorage.setItem(KEY,JSON.stringify(rows)); await AsyncStorage.setItem('cd_payments_'+id,JSON.stringify(rows[i])); await queueForSync('payments',id); return rows[i]; }
-export async function deletePayment(id:string):Promise<void>{ const rows=await getPayments(); await AsyncStorage.setItem(KEY,JSON.stringify(rows.filter(p=>p.id!==id))); await AsyncStorage.removeItem('cd_payments_'+id); await queueForSync('payments',id); }
+export async function deletePayment(id:string):Promise<void>{ const session=await getSession(); if(!session||session.role!=='admin') throw new Error('Only an Admin can delete a payment.'); const rows=await getPayments(); if(!rows.some(p=>p.id===id)) return; await AsyncStorage.setItem(KEY,JSON.stringify(rows.filter(p=>p.id!==id))); await AsyncStorage.removeItem('cd_payments_'+id); await queueDeleteForSync('payments',id); }
 
 export async function paymentSummary(quotationId:string,total:number){ const rows=await getPaymentsForQuotation(quotationId); const paid=rows.reduce((s,p)=>s+p.amount,0); return {rows,paid,balance:Math.max(0,total-paid)}; }
 
