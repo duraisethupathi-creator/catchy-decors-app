@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { defaultTemplate } from '../services/settingsService';
-import { pullFromSupabase } from '../services/db';
+import { allocateQuotationSequence, isSupabaseConfigured } from '../services/supabaseClient';
 import { formatQuotationNumber } from './numbering';
 import type { QuotationTemplate } from '../types/settings';
 
@@ -49,7 +49,7 @@ async function highestLocalSequence(t: QuotationTemplate, year: number): Promise
       // First honour this device's configured number format.
       if (number.startsWith(expectedStart)) {
         const suffix = number.slice(expectedStart.length);
-        if (/^\\d+$/.test(suffix)) {
+        if (/^\d+$/.test(suffix)) {
           highest = Math.max(highest, Number(suffix) || 0);
           continue;
         }
@@ -58,7 +58,7 @@ async function highestLocalSequence(t: QuotationTemplate, year: number): Promise
       // A new device may not yet have the same numbering template. Recognise
       // already-synced quotation numbers even when their prefix/separator differs.
       if (t.includeYear && !number.includes(String(year))) continue;
-      const suffixMatch = number.match(/(\\d+)$/);
+      const suffixMatch = number.match(/(\d+)$/);
       if (suffixMatch) highest = Math.max(highest, Number(suffixMatch[1]) || 0);
     }
     return highest;
@@ -81,15 +81,28 @@ async function nextSequence(t: QuotationTemplate, year: number): Promise<number>
   return Math.max(storedSeq, existingSeq, memorySeq ?? 0, Math.max(0, t.startNumber - 1)) + 1;
 }
 
-/** Consume and return the next document number using the configured template. */
+/** Consume and return the next document number using the configured template.
+ * Online devices use a database-atomic sequence, preventing simultaneous duplicate IDs.
+ * Offline devices use a local fallback and reconcile on reconnect; offline-created IDs
+ * must still be checked against cloud records before upload.
+ */
 export async function nextQuotationNumber(): Promise<string> {
-  // Refresh shared quotations before allocating a number so this device sees
-  // the latest sequence already created by another synced device. Offline use
-  // still works because a failed pull falls back to local records/counter.
-  try { await pullFromSupabase(); } catch { /* use local sequence when offline */ }
   const t = await loadTemplate();
   const year = new Date().getFullYear();
-  const seq = await nextSequence(t, year);
+  const startNumber = Math.max(1, Math.floor(t.startNumber) || 1);
+  let seq: number;
+  if (isSupabaseConfigured()) {
+    const allocated = await allocateQuotationSequence((t.prefix ?? '').trim(), year, startNumber);
+    if (!allocated.ok || !allocated.sequence) {
+      throw new Error(
+        'Could not reserve a unique quotation number from Supabase. Apply the quotation sequence SQL migration in Supabase, then try again. ' +
+        (allocated.error ?? '')
+      );
+    }
+    seq = allocated.sequence;
+  } else {
+    seq = await nextSequence(t, year);
+  }
   await AsyncStorage.setItem(KEY, JSON.stringify({ year, seq }));
   memorySeq = seq;
   return formatQuotationNumber(t, seq, year);
