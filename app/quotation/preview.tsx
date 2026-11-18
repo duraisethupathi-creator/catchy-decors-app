@@ -485,14 +485,14 @@ export default function Preview() {
                     <Field label="Frame Color" value={String(meta.frameColor ?? '')} onChangeText={(t) => updItem(it.id, { fabric_type: writeMosquitoMeta(it, { frameColor: t }) })} />
                     <Text style={styles.miniLabel}>Open Method</Text>
                     <ChipGroup options={['Bottom Open','Left Open','Right Open']} selected={meta.openMethod || 'Bottom Open'} onSelect={(v) => updItem(it.id, { fabric_type: writeMosquitoMeta(it, { openMethod: v }) })} />
-                    {meta.openMethod === 'Left Open' ? <Field label="No. of Doors Opening Left" value={String(meta.leftOpenCount ?? '')} onChangeText={(t) => updItem(it.id, { fabric_type: writeMosquitoMeta(it, { leftOpenCount: toNum(numericInput(t, false)) }) })} keyboardType="numeric" /> : null}
-                    {meta.openMethod === 'Right Open' ? <Field label="No. of Doors Opening Right" value={String(meta.rightOpenCount ?? '')} onChangeText={(t) => updItem(it.id, { fabric_type: writeMosquitoMeta(it, { rightOpenCount: toNum(numericInput(t, false)) }) })} keyboardType="numeric" /> : null}
+                    <Field label="Left Open Count" value={String(meta.leftOpenCount ?? '')} onChangeText={(t) => updItem(it.id, { fabric_type: writeMosquitoMeta(it, { leftOpenCount: toNum(numericInput(t, false)) }) })} keyboardType="numeric" />
+                    <Field label="Right Open Count" value={String(meta.rightOpenCount ?? '')} onChangeText={(t) => updItem(it.id, { fabric_type: writeMosquitoMeta(it, { rightOpenCount: toNum(numericInput(t, false)) }) })} keyboardType="numeric" />
                     <Field label="Door Split Count" value={String(meta.doorSplitCount ?? '')} onChangeText={(t) => updItem(it.id, { fabric_type: writeMosquitoMeta(it, { doorSplitCount: toNum(numericInput(t, false)) }) })} keyboardType="numeric" />
                   </> : null}
                 </View>;
               })() : it.product_type === 'headboard' ? <View>
                 <Field label="Fabric Details" value={it.fabric_type ?? ''} onChangeText={(t) => updItem(it.id, { fabric_type: t })} placeholder="e.g. Premium Velvet – Grey" />
-                <Field label="Fabric Required (metres)" value={String(it.fabric_quantity_mtr ?? '')} onChangeText={(t) => updItem(it.id, { fabric_quantity_mtr: toNum(numericInput(t)) })} keyboardType="decimal-pad" />
+                <Field label="Fabric Required (metres) — Optional" value={String(it.fabric_quantity_mtr ?? '')} onChangeText={(t) => updItem(it.id, { fabric_quantity_mtr: toNum(numericInput(t)) })} keyboardType="decimal-pad" />
               </View> : <View style={{ flexDirection: 'row' }}>
                 <View style={{ flex: 1, marginRight: 8 }}>
                   <Field label="Fabric Details" value={it.fabric_type ?? ''} onChangeText={(t) => updItem(it.id, { fabric_type: t })} placeholder="e.g. Cotton, Blackout" />
