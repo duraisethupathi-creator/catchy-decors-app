@@ -40,7 +40,7 @@ export interface RestoreResult {
   skipped: number;
 }
 
-/** Write a backup payload back into AsyncStorage. Existing keys are overwritten. */
+/** Restore without silently deleting records already present on this device. */
 export async function restoreBackup(payload: BackupPayload): Promise<RestoreResult> {
   if (!payload || payload.app !== 'catchy-decors' || typeof payload.data !== 'object') {
     throw new Error('This file is not a CATCHY DECORS backup');
@@ -50,7 +50,29 @@ export async function restoreBackup(payload: BackupPayload): Promise<RestoreResu
   let skipped = 0;
   for (const [k, v] of entries) {
     try {
-      await AsyncStorage.setItem(k, v);
+      const currentRaw = await AsyncStorage.getItem(k);
+      let nextValue = v;
+      if (currentRaw) {
+        try {
+          const current = JSON.parse(currentRaw);
+          const incoming = JSON.parse(v);
+          if (Array.isArray(current) && Array.isArray(incoming)) {
+            const byId = new Map<string, unknown>();
+            for (const row of current) {
+              const id = row && typeof row === 'object' ? String((row as {id?: unknown}).id ?? '') : '';
+              if (id) byId.set(id, row);
+            }
+            for (const row of incoming) {
+              const id = row && typeof row === 'object' ? String((row as {id?: unknown}).id ?? '') : '';
+              if (id) byId.set(id, row);
+            }
+            nextValue = JSON.stringify([...byId.values()]);
+          }
+        } catch {
+          // Preserve normal scalar/object restore behavior for non-record settings.
+        }
+      }
+      await AsyncStorage.setItem(k, nextValue);
       restored += 1;
     } catch {
       skipped += 1;
