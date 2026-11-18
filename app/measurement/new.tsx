@@ -282,22 +282,32 @@ export default function Measurements() {
     }
     const missing = rows.find((r) => !r.area.trim());
     if (missing) { toast('Every row needs an Area Name'); return; }
-    const invalid = rows.find((r) => {
+    const validationError = rows.map((r) => {
+      const area = r.area.trim() || 'Unnamed item';
+      const positive = (value: string) => Number.isFinite(Number(value)) && Number(value) > 0;
       if (r.product === 'mosquito_net') {
-        if (Number(r.width) <= 0 || Number(r.height) <= 0 || Number(r.additionalSqft) < 0) return true;
-        if (isDoorNet(r.type)) {
-          if (!r.frameColor.trim() || Number(r.doorSplitCount) <= 0) return true;
-          if (r.openMethod === 'Left Open' && Number(r.leftOpenCount) <= 0) return true;
-          if (r.openMethod === 'Right Open' && Number(r.rightOpenCount) <= 0) return true;
+        if (!positive(r.width) || !positive(r.height)) {
+          return `${area} (${r.type}): Enter a valid Width and Height in ${r.measurementUnit}.`;
         }
-        return false;
+        if (r.additionalSqft.trim() && (!Number.isFinite(Number(r.additionalSqft)) || Number(r.additionalSqft) < 0)) {
+          return `${area} (${r.type}): Additional Area must be 0 or a positive number.`;
+        }
+        if (isDoorNet(r.type)) {
+          if (!r.frameColor.trim()) return `${area} (Door Net): Enter Frame Color.`;
+          if (!positive(r.doorSplitCount)) return `${area} (Door Net): Enter Door Split Count.`;
+          if (r.openMethod === 'Left Open' && !positive(r.leftOpenCount)) return `${area} (Door Net): Enter the number of doors opening left.`;
+          if (r.openMethod === 'Right Open' && !positive(r.rightOpenCount)) return `${area} (Door Net): Enter the number of doors opening right.`;
+        }
+        return null;
       }
-      return Number(r.width) <= 0 || (getProduct(r.product).usesHeight && Number(r.height) <= 0)
-        || (r.product === 'curtains' && Number(r.part) <= 0)
-        || (r.product === 'headboard' && Number(r.manualFabricMtr) <= 0)
-        || (r.product === 'blinds' && r.type.toLowerCase() === 'roman' && Number(r.manualFabricMtr) <= 0);
-    });
-    if (invalid) { toast('Enter valid mosquito net Width / Height and required Door details'); return; }
+      if (!positive(r.width)) return `${area} (${getProduct(r.product).name}): Enter a valid Width / Quantity.`;
+      if (getProduct(r.product).usesHeight && !positive(r.height)) return `${area} (${getProduct(r.product).name}): Enter a valid Height.`;
+      if (r.product === 'curtains' && !positive(r.part)) return `${area} (Curtains): Enter the number of Parts.`;
+      if (r.product === 'headboard' && !positive(r.manualFabricMtr)) return `${area} (Headboard): Enter Fabric Required (metres).`;
+      if (r.product === 'blinds' && r.type.toLowerCase() === 'roman' && !positive(r.manualFabricMtr)) return `${area} (Roman Blind): Enter Fabric Required (metres).`;
+      return null;
+    }).find(Boolean);
+    if (validationError) { toast(validationError); return; }
     await persistDraft();
     router.push(`/quotation/new?customerId=${customerId}`);
   }
