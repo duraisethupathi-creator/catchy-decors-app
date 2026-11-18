@@ -1,4 +1,6 @@
 import React, { useCallback, useState } from 'react';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +12,8 @@ import type { Customer } from '../../src/types/customer';
 import type { Quotation } from '../../src/types/quotation';
 import { getQuotationsByCustomer } from '../../src/services/quotationService';
 import { getPayments } from '../../src/services/paymentService';
+import { getAllMeasurements, loadDraftMeasurements } from '../../src/services/measurementService';
+import { getProduct } from '../../src/constants/products';
 
 export default function CustomerDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -43,6 +47,25 @@ export default function CustomerDetail() {
     setCustomer(saved);
   }
 
+  async function downloadMeasurementsPdf() {
+    const [saved, draft] = await Promise.all([getAllMeasurements(), loadDraftMeasurements(customer.id)]);
+    const rows = [...saved.filter((m) => m.customer_id === customer.id), ...draft];
+    if (!rows.length) { return; }
+    const esc = (value: unknown) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const detail = (value?: string) => {
+      if (!value) return '';
+      try {
+        const meta = JSON.parse(value);
+        if (meta?.__mosquitoMeta === 1) return [meta.description, meta.frameColor ? `Frame: ${meta.frameColor}` : '', meta.leftOpenCount ? `Left: ${meta.leftOpenCount}` : '', meta.rightOpenCount ? `Right: ${meta.rightOpenCount}` : ''].filter(Boolean).join(' · ');
+      } catch {}
+      return value;
+    };
+    const tableRows = rows.map((m, i) => `<tr><td>${i + 1}</td><td>${esc(m.area_name)}</td><td>${esc(getProduct(m.product_type).name)} ${esc(m.type || '')}</td><td>${esc(m.width)} × ${esc(m.height)} ${esc(m.measurement_unit || 'inch')}</td><td>${esc(detail(m.fabric_type))}</td><td>${Number(m.quantity || 0).toFixed(2)}</td></tr>`).join('');
+    const html = `<!doctype html><html><head><meta charset="utf-8"><style>@page{size:A4;margin:16mm}body{font-family:Arial;color:#17213d;font-size:11px}h1{color:#101D4A}table{width:100%;border-collapse:collapse;margin-top:18px}th{background:#101D4A;color:#fff;padding:8px}td{padding:8px;border-bottom:1px solid #ddd}small{color:#667085}</style></head><body><h1>CATCHY DECORS</h1><h2>Customer Measurement & Fabric Details</h2><b>${esc(customer.name)}</b><br>${esc(customer.phone)}<br>${esc(customer.address || '')}<br><small>Generated: ${new Date().toLocaleDateString('en-IN')}</small><table><tr><th>S.No</th><th>Area</th><th>Product</th><th>Measurements</th><th>Fabric / Details</th><th>Qty</th></tr>${tableRows}</table></body></html>`;
+    const file = await Print.printToFileAsync({ html });
+    if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(file.uri, { mimeType: 'application/pdf', dialogTitle: 'Customer Measurements PDF' });
+  }
+
   return (
     <ScrollView style={styles.root} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
       <View style={styles.header}>
@@ -66,6 +89,7 @@ export default function CustomerDetail() {
         <Button title="Measurements" icon="resize" variant="accent" style={{ flex: 1 }} onPress={() => router.push(`/measurement/new?customerId=${customer.id}` as never)} />
         <Button title="Quotation" icon="document" style={{ flex: 1 }} onPress={() => router.push(`/quotation/new?customerId=${customer.id}` as never)} />
       </View>
+      <Button title="Download Measurements & Fabric PDF" icon="download-outline" variant="outline" style={{ marginTop: 10 }} onPress={downloadMeasurementsPdf} />
 
       <View style={{ marginTop: 20 }}>
         <Text style={styles.historyTitle}>Purchase & Payment History</Text>
