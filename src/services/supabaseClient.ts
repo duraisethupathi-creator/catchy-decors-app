@@ -65,6 +65,39 @@ function headers(): Record<string, string> {
   };
 }
 
+
+/** Allocate a quotation sequence atomically on Supabase.
+ * Requires the next_quotation_sequence SQL migration to be applied once per project.
+ */
+export async function allocateQuotationSequence(
+  prefix: string,
+  year: number,
+  startNumber: number
+): Promise<{ ok: boolean; sequence?: number; error?: string }> {
+  await hydrateSupabaseConfig();
+  if (!isSupabaseConfigured()) return { ok: false, error: 'not-configured' };
+  try {
+    const res = await fetch(`${url}/rest/v1/rpc/next_quotation_sequence`, {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({
+        p_prefix: prefix,
+        p_year: year,
+        p_start_number: Math.max(1, Math.floor(startNumber) || 1),
+      }),
+    });
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status} ${await safeText(res)}` };
+    const value = await res.json();
+    const sequence = Number(value);
+    if (!Number.isSafeInteger(sequence) || sequence < 1) {
+      return { ok: false, error: 'Invalid sequence returned by Supabase.' };
+    }
+    return { ok: true, sequence };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 /** Upsert a single record via PostgREST. */
 export async function upsertRow(
   table: string,
