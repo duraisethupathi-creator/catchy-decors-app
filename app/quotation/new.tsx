@@ -79,6 +79,10 @@ export default function NewQuotation() {
         }
         const c = await getCustomer(cid);
         setCustomer(c);
+        try {
+          const savedPhotos = await AsyncStorage.getItem(`cd_reference_photos_draft_${cid}`);
+          setReferencePhotos(savedPhotos ? JSON.parse(savedPhotos) : []);
+        } catch { setReferencePhotos([]); }
         setItems(await loadDraftMeasurements(cid));
         const draftAcc = await loadDraftAccessories(cid);
         setAccRows(
@@ -116,9 +120,10 @@ export default function NewQuotation() {
       }));
       await saveAccessories(customer.id, accDraft);
       await saveChargesDraft(customer.id, buildCharges({ ...charges, stitchingQty: String(curtainParts || '') }).charges);
+      await AsyncStorage.setItem(`cd_reference_photos_draft_${customer.id}`, JSON.stringify(referencePhotos));
     }, 250);
     return () => { if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current); };
-  }, [accRows, charges, customer, curtainParts]);
+  }, [accRows, charges, customer, curtainParts, referencePhotos]);
 
   function accQty(r: AccRow): number { return calculateAccessories(r.width); }
   function accTotal(r: AccRow): number { return calculateTotal(accQty(r), r.price); }
@@ -229,6 +234,7 @@ export default function NewQuotation() {
     const { saveAccessories } = await import('../../src/services/measurementService');
     await saveAccessories(customer.id, accDraft);
     await saveChargesDraft(customer.id, bundle.charges);
+    await AsyncStorage.setItem(`cd_reference_photos_draft_${customer.id}`, JSON.stringify(referencePhotos));
   }
 
   async function save(status: 'draft' | 'sent'): Promise<Quotation | null> {
