@@ -35,9 +35,18 @@ export async function saveBillingDocument(
   const id = `${quotation.id}:${type}`;
   const existing = rows.find((row) => row.id === id);
   const now = new Date().toISOString();
-  const total = type === 'gst' && quotation.gst?.enabled
-    ? quotation.grand_total
-    : quotation.grand_total;
+  const baseTotal = quotation.grand_total;
+  const gstPercent = type === 'gst' && quotation.gst?.enabled ? Number(quotation.gst.percent || 0) : 0;
+  const itemGst = gstPercent > 0
+    ? (quotation.items ?? []).reduce((sum, item) => {
+        const rate = item.product_type === 'mosquito_net' && String(item.type || '').toLowerCase() === 'velcro net'
+          ? 0
+          : Number(item.gst_percent ?? gstPercent);
+        return sum + (Number(item.total || 0) * rate) / 100;
+      }, 0)
+    : 0;
+  const nonItemTaxable = quotation.accessories_total + quotation.other_charges - quotation.discount;
+  const total = Math.round((baseTotal + itemGst + (gstPercent > 0 ? nonItemTaxable * gstPercent / 100 : 0)) * 100) / 100;
   const doc: BillingDocument = {
     id,
     quotation_id: quotation.id,
