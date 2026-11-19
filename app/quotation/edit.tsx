@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -57,6 +57,8 @@ export default function EditQuotation() {
   const [saving, setSaving] = useState(false);
   const [referencePhotos, setReferencePhotos] = useState<MaterialReferencePhoto[]>([]);
   const [showAddCurtain, setShowAddCurtain] = useState(false);
+  const [editingItem, setEditingItem] = useState<Measurement | null>(null);
+  const [itemForm, setItemForm] = useState({ area: '', type: '', width: '', height: '', quantity: '', price: '', fabric: '', fabricArea: '', part: '', liningType: '', liningFabric: '', liningQuantity: '', liningPrice: '' });
   const [newCurtain, setNewCurtain] = useState({ area: '', part: '', width: '', height: '', fabric: '', lining: '', liningFabric: '', price: '' });
   const draftReady = useRef(false);
   const draftSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -136,6 +138,45 @@ export default function EditQuotation() {
     if (sqft) parts.push(`fabric area ${sqft} sq.ft`);
     return parts.length ? `Fabric total: ${parts.join(' · ')}` : '';
   })();
+
+  function openItemEditor(item: Measurement) {
+    setEditingItem(item);
+    setItemForm({
+      area: item.area_name ?? '', type: item.type ?? '', width: String(item.width ?? ''),
+      height: String(item.height ?? ''), quantity: String(item.quantity ?? ''),
+      price: String(item.price ?? ''), fabric: item.fabric_type ?? '',
+      fabricArea: String(item.fabric_area ?? ''), part: String(item.part ?? ''),
+      liningType: item.lining_type ?? '', liningFabric: item.lining_fabric ?? '',
+      liningQuantity: String(item.lining_quantity ?? ''), liningPrice: String(item.lining_price ?? ''),
+    });
+  }
+
+  function saveItemEdit() {
+    if (!editingItem) return;
+    const quantity = Math.max(0, Number(itemForm.quantity) || 0);
+    const price = Math.max(0, Number(itemForm.price) || 0);
+    const updated: Measurement = {
+      ...editingItem,
+      area_name: itemForm.area.trim() || editingItem.area_name,
+      type: itemForm.type.trim(),
+      width: Math.max(0, Number(itemForm.width) || 0),
+      height: Math.max(0, Number(itemForm.height) || 0),
+      quantity,
+      price,
+      total: calculateTotal(quantity, price),
+      fabric_type: itemForm.fabric.trim(),
+      fabric_area: Math.max(0, Number(itemForm.fabricArea) || 0),
+      part: itemForm.part.trim() ? Math.max(0, Number(itemForm.part) || 0) : undefined,
+      lining_type: itemForm.liningType === 'Blackout Lining' || itemForm.liningType === 'Semi Lining' ? itemForm.liningType : undefined,
+      lining_fabric: itemForm.liningFabric.trim(),
+      lining_quantity: Math.max(0, Number(itemForm.liningQuantity) || 0),
+      lining_price: Math.max(0, Number(itemForm.liningPrice) || 0),
+      lining_total: calculateTotal(itemForm.liningQuantity, itemForm.liningPrice),
+    };
+    setItems(rows => rows.map(row => row.id === editingItem.id ? updated : row));
+    setEditingItem(null);
+    toast('Item updated. Quotation total recalculated.');
+  }
 
   function addCurtainToQuotation() {
     if (!customer) return;
@@ -347,10 +388,13 @@ export default function EditQuotation() {
           const colLabel = quantityColumnLabel(it.product_type);
           const unitLabel = colLabel === 'Qty' ? `Qty (${def.qtyUnit})` : colLabel;
           return (
-            <View key={it.id} style={styles.lineRow}>
-              <Text style={styles.lineText}>{i + 1}. {it.area_name} — {def.name}{it.product_type==='curtains'&&it.fabric_type ? ` · Fabric: ${it.fabric_type}` : ''}{it.product_type==='curtains'&&it.lining_type ? ` · ${it.lining_type}${it.lining_fabric ? `: ${it.lining_fabric}` : ''}` : ''} · {unitLabel} {it.quantity}</Text>
+            <TouchableOpacity key={it.id} style={styles.lineRow} activeOpacity={0.75} onPress={() => openItemEditor(it)}>
+              <View style={{ flex: 1, marginRight: 8 }}>
+                <Text style={styles.lineText}>{i + 1}. {it.area_name} — {def.name}{it.product_type==='curtains'&&it.fabric_type ? ` · Fabric: ${it.fabric_type}` : ''}{it.product_type==='curtains'&&it.lining_type ? ` · ${it.lining_type}${it.lining_fabric ? `: ${it.lining_fabric}` : ''}` : ''} · {unitLabel} {it.quantity}</Text>
+                <Text style={{ color: colors.orange, fontSize: 11, fontWeight: '800', marginTop: 4 }}>✎ Tap to edit item</Text>
+              </View>
               <Text style={styles.lineTotal}>{formatINR(it.total, false)}</Text>
-            </View>
+            </TouchableOpacity>
           );
         })
       )}
@@ -553,6 +597,45 @@ export default function EditQuotation() {
           <Text style={styles.grandVal}>{formatINR(grandTotal)}</Text>
         </View>
       </Card>
+
+      <Modal visible={!!editingItem} transparent animationType="slide" onRequestClose={() => setEditingItem(null)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 18, maxHeight: '90%' }}>
+            <ScrollView keyboardShouldPersistTaps="handled">
+              <Text style={styles.section}>Edit Quotation Item</Text>
+              <Text style={styles.note}>{editingItem ? getProduct(editingItem.product_type).name : ''} · Changes apply to this item only.</Text>
+              <Field label="Area / Room Name" value={itemForm.area} onChangeText={t => setItemForm(v => ({ ...v, area: t }))} />
+              <Field label="Type / Description" value={itemForm.type} onChangeText={t => setItemForm(v => ({ ...v, type: t }))} />
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <View style={{ flex: 1 }}><Field label="Width" value={itemForm.width} onChangeText={t => setItemForm(v => ({ ...v, width: numericInput(t) }))} keyboardType="decimal-pad" /></View>
+                <View style={{ flex: 1 }}><Field label="Height" value={itemForm.height} onChangeText={t => setItemForm(v => ({ ...v, height: numericInput(t) }))} keyboardType="decimal-pad" /></View>
+              </View>
+              {editingItem?.product_type === 'curtains' ? <Field label="Part" value={itemForm.part} onChangeText={t => setItemForm(v => ({ ...v, part: numericInput(t) }))} keyboardType="decimal-pad" /> : null}
+              <Field label="Quantity (editable)" value={itemForm.quantity} onChangeText={t => setItemForm(v => ({ ...v, quantity: numericInput(t) }))} keyboardType="decimal-pad" />
+              <Field label="Rate (₹)" value={itemForm.price} onChangeText={t => setItemForm(v => ({ ...v, price: numericInput(t) }))} keyboardType="decimal-pad" />
+              <Field label="Fabric Details" value={itemForm.fabric} onChangeText={t => setItemForm(v => ({ ...v, fabric: t }))} />
+              <Field label="Fabric Area (sq.ft)" value={itemForm.fabricArea} onChangeText={t => setItemForm(v => ({ ...v, fabricArea: numericInput(t) }))} keyboardType="decimal-pad" />
+              {editingItem?.product_type === 'curtains' ? <>
+                <Text style={styles.chargeTitle}>Lining Details</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {(['Semi Lining', 'Blackout Lining'] as const).map(value => <TouchableOpacity key={value} onPress={() => setItemForm(v => ({ ...v, liningType: v.liningType === value ? '' : value }))} style={{ flex: 1, padding: 10, borderRadius: 10, backgroundColor: itemForm.liningType === value ? colors.navy : colors.chipBg }}><Text style={{ color: itemForm.liningType === value ? '#fff' : colors.textDark, fontSize: 12, fontWeight: '700', textAlign: 'center' }}>{value}</Text></TouchableOpacity>)}
+                </View>
+                <Field label="Lining Fabric" value={itemForm.liningFabric} onChangeText={t => setItemForm(v => ({ ...v, liningFabric: t }))} />
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <View style={{ flex: 1 }}><Field label="Lining Metres" value={itemForm.liningQuantity} onChangeText={t => setItemForm(v => ({ ...v, liningQuantity: numericInput(t) }))} keyboardType="decimal-pad" /></View>
+                  <View style={{ flex: 1 }}><Field label="Lining Rate / mtr" value={itemForm.liningPrice} onChangeText={t => setItemForm(v => ({ ...v, liningPrice: numericInput(t) }))} keyboardType="decimal-pad" /></View>
+                </View>
+                <Text style={styles.note}>Lining amount: {formatINR(calculateTotal(itemForm.liningQuantity, itemForm.liningPrice))}</Text>
+              </> : null}
+              <Text style={styles.note}>Item total: {formatINR(calculateTotal(itemForm.quantity, itemForm.price))}</Text>
+              <View style={{ gap: 8, marginTop: 10 }}>
+                <Button title="Save Item Changes" icon="checkmark" variant="accent" onPress={saveItemEdit} />
+                <Button title="Cancel" variant="outline" onPress={() => setEditingItem(null)} />
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       <View style={{ gap: 10, marginTop: 18 }}>
         <Button title="Update Quotation & Preview" icon="document-text" variant="accent" onPress={onSavePreview} disabled={saving} />
