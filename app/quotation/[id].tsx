@@ -22,6 +22,7 @@ import type { Quotation, WorkStatus } from '../../src/types/quotation';
 import { addPayment, updatePayment, deletePayment, addPaymentAudit, paymentSummary, buildAdvancePaymentMessage, type PaymentEntry, type PaymentMode, type PaymentType } from '../../src/services/paymentService';
 import { adminBiometricApproval } from '../../src/services/biometricService';
 import { getSession } from '../../src/services/authService';
+import { saveBillingDocument } from '../../src/services/billingDocumentService';
 
 export default function QuotationDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -71,6 +72,9 @@ export default function QuotationDetail() {
           : kind === 'bill'
             ? buildNonGstBillHtml(q!, ctx)
             : buildQuotationHtml(q!, null, ctx);
+      if (kind === 'bill' || kind === 'gst') {
+        await saveBillingDocument(q!, kind, paid);
+      }
       const { uri } = await Print.printToFileAsync({ html, width: 595, height: 842 });
       // expo-print creates a UUID temp filename. Copy it to our branded filename
       // before sharing so WhatsApp/Files shows the real document name.
