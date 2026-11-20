@@ -32,7 +32,7 @@ import {
 import { nextQuotationNumber, peekQuotationNumber } from '../../src/utils/quotationNumber';
 import { formatINR } from '../../src/utils/currency';
 import { numericInput } from '../../src/utils/validation';
-import { round2, calculateAccessories, calculateCurtainQty, calculateTotal } from '../../src/utils/calculations';
+import { round2, calculateAccessories, calculateCurtainQty, calculateSquareFeet, calculateSquareFeetMm, calculateWallpaperQty, calculateTotal } from '../../src/utils/calculations';
 import type { Customer } from '../../src/types/customer';
 import type { Measurement, Accessory, OtherCharge } from '../../src/types/measurement';
 import type { MaterialReferencePhoto, Quotation } from '../../src/types/quotation';
@@ -59,7 +59,7 @@ export default function EditQuotation() {
   const [showAddCurtain, setShowAddCurtain] = useState(false);
   const [editingItem, setEditingItem] = useState<Measurement | null>(null);
   const [showAddProduct, setShowAddProduct] = useState(false);
-  const [addProductForm, setAddProductForm] = useState({ product: 'blinds' as ProductKey, area: '', type: 'Roller', width: '', height: '', quantity: '', price: '', fabric: '' });
+  const [addProductForm, setAddProductForm] = useState({ product: 'blinds' as ProductKey, area: '', type: 'Roller', width: '', height: '', quantity: '', price: '', fabric: '', part: '', unit: 'inch' as 'inch' | 'mm', manualFabricMtr: '', additionalSqft: '', description: '', frameColor: '', openMethod: 'Bottom Open' as 'Bottom Open' | 'Left Open' | 'Right Open', leftOpenCount: '', rightOpenCount: '', doorSplitCount: '', liningType: '', liningFabric: '', gst: '0' });
   const [itemForm, setItemForm] = useState({ area: '', type: '', width: '', height: '', quantity: '', price: '', fabric: '', fabricArea: '', part: '', liningType: '', liningFabric: '', liningQuantity: '', liningPrice: '' });
   const [newCurtain, setNewCurtain] = useState({ area: '', part: '', width: '', height: '', fabric: '', lining: '', liningFabric: '', price: '' });
   const draftReady = useRef(false);
@@ -141,27 +141,60 @@ export default function EditQuotation() {
     return parts.length ? `Fabric total: ${parts.join(' · ')}` : '';
   })();
 
+  function getNewProductQuantity() {
+    const f = addProductForm, product = f.product, type = f.type.toLowerCase();
+    const w = Number(f.width) || 0, h = Number(f.height) || 0;
+    if (product === 'curtains') return calculateCurtainQty(f.part, h);
+    if (product === 'accessories') return calculateAccessories(w);
+    if (product === 'cushion') return Math.max(0, w);
+    if (product === 'wallpaper') return calculateWallpaperQty(w, h, false, f.type === 'Normal Wallpaper' ? 'Normal Wallpaper' : 'Customize').qty;
+    if (product === 'blinds' && type === 'roman') return Math.max(0, Number(f.manualFabricMtr) || 0);
+    if (product === 'mosquito_net' && type === 'velcro net') {
+      const factor = f.unit === 'mm' ? 25.4 : 1;
+      const cutW = w / factor + 2, cutH = h / factor + 2;
+      return Math.ceil((cutW * cutH) / 144) + Math.max(0, Number(f.additionalSqft) || 0);
+    }
+    if ((product === 'blinds' || product === 'mosquito_net') && f.unit === 'mm') return calculateSquareFeetMm(w, h);
+    if (getProduct(product).usesHeight) return calculateSquareFeet(w, h);
+    return Math.max(0, w);
+  }
+  const newProductQuantity = getNewProductQuantity();
+  const newProductTotal = calculateTotal(newProductQuantity, addProductForm.price);
+
   function addProductItem() {
     if (!customer) return;
-    const def = getProduct(addProductForm.product);
-    const quantity = Math.max(0, Number(addProductForm.quantity) || 0);
-    const price = Math.max(0, Number(addProductForm.price) || 0);
-    if (!addProductForm.area.trim() || quantity <= 0) {
-      toast('Enter Area Name and Quantity');
-      return;
+    const f = addProductForm, def = getProduct(f.product), quantity = newProductQuantity;
+    if (!f.area.trim()) { toast('Enter Area / Room Name'); return; }
+    if (quantity <= 0) { toast('Enter valid measurements / fabric quantity'); return; }
+    if (f.product === 'curtains' && Number(f.part) <= 0) { toast('Enter Curtain Part'); return; }
+    if (f.product === 'mosquito_net' && (!Number(f.width) || !Number(f.height))) { toast('Enter mosquito net width and height'); return; }
+    if (f.product === 'mosquito_net' && f.type.toUpperCase() === 'DOOR NET') {
+      if (!f.frameColor.trim() || Number(f.doorSplitCount) <= 0) { toast('Enter Door Net frame colour and split count'); return; }
+      if (f.openMethod === 'Left Open' && Number(f.leftOpenCount) <= 0) { toast('Enter Left Open Count'); return; }
+      if (f.openMethod === 'Right Open' && Number(f.rightOpenCount) <= 0) { toast('Enter Right Open Count'); return; }
     }
+    const price = Math.max(0, Number(f.price) || 0);
+    const mosquitoMeta = f.product === 'mosquito_net' ? JSON.stringify({ __mosquitoMeta: 1, description: f.description.trim(), additionalSqft: Number(f.additionalSqft) || 0, frameColor: f.frameColor.trim(), openMethod: f.openMethod, leftOpenCount: Number(f.leftOpenCount) || 0, rightOpenCount: Number(f.rightOpenCount) || 0, doorSplitCount: Number(f.doorSplitCount) || 0 }) : undefined;
     const item: Measurement = {
-      id: uid(), customer_id: customer.id, product_type: addProductForm.product,
-      area_name: addProductForm.area.trim(), type: addProductForm.type.trim(),
-      width: Math.max(0, Number(addProductForm.width) || 0),
-      height: def.usesHeight ? Math.max(0, Number(addProductForm.height) || 0) : 0,
+      id: uid(), customer_id: customer.id, product_type: f.product,
+      area_name: f.area.trim(), type: f.type.trim(),
+      width: Math.max(0, Number(f.width) || 0),
+      height: def.usesHeight ? Math.max(0, Number(f.height) || 0) : 0,
       quantity, price, total: calculateTotal(quantity, price),
-      fabric_type: addProductForm.fabric.trim(),
+      fabric_type: mosquitoMeta ?? f.fabric.trim(),
+      part: f.product === 'curtains' ? Number(f.part) || 0 : undefined,
+      measurement_unit: f.unit,
+      fabric_quantity_mtr: f.product === 'headboard' ? Number(f.manualFabricMtr) || 0 : undefined,
+      lining_type: f.product === 'curtains' && f.liningType ? f.liningType as Measurement['lining_type'] : undefined,
+      lining_fabric: f.liningFabric.trim(),
+      lining_quantity: f.product === 'curtains' && f.liningType ? quantity : 0,
+      lining_price: 0, lining_total: 0,
+      gst_percent: Math.max(0, Number(f.gst) || 0),
     };
     setItems(current => [...current, item]);
-    setAddProductForm({ product: 'blinds', area: '', type: 'Roller', width: '', height: '', quantity: '', price: '', fabric: '' });
+    setAddProductForm({ product: 'blinds', area: '', type: 'Roller', width: '', height: '', quantity: '', price: '', fabric: '', part: '', unit: 'inch', manualFabricMtr: '', additionalSqft: '', description: '', frameColor: '', openMethod: 'Bottom Open', leftOpenCount: '', rightOpenCount: '', doorSplitCount: '', liningType: '', liningFabric: '', gst: '0' });
     setShowAddProduct(false);
-    toast(def.name + ' added to quotation');
+    toast(def.name + ' added · formula calculated');
   }
 
   function removeQuotationItem(item: Measurement) {
@@ -443,39 +476,84 @@ export default function EditQuotation() {
       <Button title={showAddProduct ? 'Close Add Product' : '+ Add New Product'} icon="add-circle-outline" variant="accent" onPress={() => setShowAddProduct(v => !v)} style={{ marginTop: 8 }} />
       {showAddProduct ? (
         <Card style={{ marginTop: 10 }}>
-          <Text style={styles.rowTitle}>Add Product to Existing Quotation</Text>
-          <Text style={styles.formulaNote}>Choose product, enter quantity and rate. This adds a new line without changing the quotation number.</Text>
+          <Text style={styles.rowTitle}>Add Product · Same Measurement Formula</Text>
+          <Text style={styles.formulaNote}>Choose product and enter its normal measurement details. Quantity and total calculate automatically.</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 10 }}>
-            {PRODUCTS.filter(p => p.key !== 'accessories').map(p => (
-              <TouchableOpacity key={p.key} onPress={() => setAddProductForm(v => ({ ...v, product: p.key, type: p.typeOptions[0] ?? '' }))} style={{ paddingHorizontal: 11, paddingVertical: 8, borderRadius: 9, backgroundColor: addProductForm.product === p.key ? colors.navy : colors.chipBg }}>
-                <Text style={{ color: addProductForm.product === p.key ? '#fff' : colors.textDark, fontWeight: '700', fontSize: 12 }}>{p.name}</Text>
-              </TouchableOpacity>
-            ))}
+            {PRODUCTS.map(p => <TouchableOpacity key={p.key} onPress={() => setAddProductForm(v => ({ ...v, product: p.key, type: p.typeOptions[0] ?? '', unit: 'inch', part: '', manualFabricMtr: '', additionalSqft: '', liningType: '' }))} style={{ paddingHorizontal: 11, paddingVertical: 8, borderRadius: 9, backgroundColor: addProductForm.product === p.key ? colors.navy : colors.chipBg }}><Text style={{ color: addProductForm.product === p.key ? '#fff' : colors.textDark, fontWeight: '700', fontSize: 12 }}>{p.name}</Text></TouchableOpacity>)}
           </View>
           <Field label="Area / Room Name" value={addProductForm.area} onChangeText={v => setAddProductForm(s => ({ ...s, area: v }))} placeholder="e.g. Hall Window" />
-          {getProduct(addProductForm.product).typeOptions.length > 0 ? (
+          {getProduct(addProductForm.product).typeOptions.length > 0 ? <>
+            <Text style={styles.miniLabel}>{getProduct(addProductForm.product).typeLabel}</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 10 }}>
-              {getProduct(addProductForm.product).typeOptions.map(t => (
-                <TouchableOpacity key={t} onPress={() => setAddProductForm(v => ({ ...v, type: t }))} style={{ paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8, backgroundColor: addProductForm.type === t ? colors.navy : colors.chipBg }}>
-                  <Text style={{ color: addProductForm.type === t ? '#fff' : colors.textDark, fontSize: 11, fontWeight: '700' }}>{t}</Text>
-                </TouchableOpacity>
-              ))}
+              {getProduct(addProductForm.product).typeOptions.map(t => <TouchableOpacity key={t} onPress={() => setAddProductForm(v => ({ ...v, type: t }))} style={{ paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8, backgroundColor: addProductForm.type === t ? colors.navy : colors.chipBg }}><Text style={{ color: addProductForm.type === t ? '#fff' : colors.textDark, fontSize: 11, fontWeight: '700' }}>{t}</Text></TouchableOpacity>)}
             </View>
-          ) : null}
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <View style={{ flex: 1 }}><Field label="Width" value={addProductForm.width} onChangeText={v => setAddProductForm(s => ({ ...s, width: numericInput(v) }))} keyboardType="decimal-pad" /></View>
-            <View style={{ flex: 1 }}><Field label="Height" value={addProductForm.height} onChangeText={v => setAddProductForm(s => ({ ...s, height: numericInput(v) }))} keyboardType="decimal-pad" /></View>
+          </> : null}
+          {addProductForm.product === 'curtains' ? <>
+            <Field label="Part (number of curtain parts)" value={addProductForm.part} onChangeText={v => setAddProductForm(s => ({ ...s, part: numericInput(v) }))} keyboardType="decimal-pad" />
+            <Field label="Height (inch)" value={addProductForm.height} onChangeText={v => setAddProductForm(s => ({ ...s, height: numericInput(v) }))} keyboardType="decimal-pad" />
+            <Field label="Fabric Name / Details" value={addProductForm.fabric} onChangeText={v => setAddProductForm(s => ({ ...s, fabric: v }))} />
+            {addProductForm.type !== 'Sheer' ? <>
+              <Text style={styles.miniLabel}>Lining Type</Text>
+              <View style={{ flexDirection: 'row', gap: 7 }}>
+                {(['No Lining','Semi Lining','Blackout Lining'] as const).map(t => <TouchableOpacity key={t} onPress={() => setAddProductForm(v => ({ ...v, liningType: t === 'No Lining' ? '' : t }))} style={{ flex: 1, padding: 8, borderRadius: 8, backgroundColor: (addProductForm.liningType || 'No Lining') === t ? colors.navy : colors.chipBg }}><Text style={{ color: (addProductForm.liningType || 'No Lining') === t ? '#fff' : colors.textDark, fontSize: 10, textAlign: 'center' }}>{t}</Text></TouchableOpacity>)}
+              </View>
+              {addProductForm.liningType ? <Field label="Lining Fabric" value={addProductForm.liningFabric} onChangeText={v => setAddProductForm(s => ({ ...s, liningFabric: v }))} /> : null}
+            </> : null}
+          </> : addProductForm.product === 'blinds' || addProductForm.product === 'mosquito_net' ? <>
+            <Text style={styles.miniLabel}>Measurement Unit</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+              {(['inch','mm'] as const).map(u => <TouchableOpacity key={u} onPress={() => setAddProductForm(v => ({ ...v, unit: u }))} style={{ flex: 1, padding: 9, borderRadius: 8, backgroundColor: addProductForm.unit === u ? colors.navy : colors.chipBg }}><Text style={{ color: addProductForm.unit === u ? '#fff' : colors.textDark, textAlign: 'center', fontWeight: '700' }}>{u}</Text></TouchableOpacity>)}
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flex: 1 }}><Field label={`Width (${addProductForm.unit})`} value={addProductForm.width} onChangeText={v => setAddProductForm(s => ({ ...s, width: numericInput(v) }))} keyboardType="decimal-pad" /></View>
+              <View style={{ flex: 1 }}><Field label={`Height (${addProductForm.unit})`} value={addProductForm.height} onChangeText={v => setAddProductForm(s => ({ ...s, height: numericInput(v) }))} keyboardType="decimal-pad" /></View>
+            </View>
+            {addProductForm.product === 'blinds' && addProductForm.type.toLowerCase() === 'roman' ? <><Field label="Fabric Required (mtr) — Manual" value={addProductForm.manualFabricMtr} onChangeText={v => setAddProductForm(s => ({ ...s, manualFabricMtr: numericInput(v) }))} keyboardType="decimal-pad" /><Field label="Fabric Details" value={addProductForm.fabric} onChangeText={v => setAddProductForm(s => ({ ...s, fabric: v }))} /></> : <Field label="Fabric / Colour Details" value={addProductForm.fabric} onChangeText={v => setAddProductForm(s => ({ ...s, fabric: v }))} />}
+            {addProductForm.product === 'mosquito_net' ? <>
+              <Field label="Net Description / Colour" value={addProductForm.description} onChangeText={v => setAddProductForm(s => ({ ...s, description: v }))} />
+              <Field label="Additional Area (sq.ft)" value={addProductForm.additionalSqft} onChangeText={v => setAddProductForm(s => ({ ...s, additionalSqft: numericInput(v) }))} keyboardType="decimal-pad" />
+              {addProductForm.type.toUpperCase() === 'DOOR NET' ? <>
+                <Field label="Frame Colour" value={addProductForm.frameColor} onChangeText={v => setAddProductForm(s => ({ ...s, frameColor: v }))} />
+                <Text style={styles.miniLabel}>Open Method</Text>
+                <View style={{ flexDirection: 'row', gap: 6 }}>{(['Bottom Open','Left Open','Right Open'] as const).map(t => <TouchableOpacity key={t} onPress={() => setAddProductForm(v => ({ ...v, openMethod: t }))} style={{ flex: 1, padding: 7, borderRadius: 8, backgroundColor: addProductForm.openMethod === t ? colors.navy : colors.chipBg }}><Text style={{ color: addProductForm.openMethod === t ? '#fff' : colors.textDark, textAlign: 'center', fontSize: 10 }}>{t}</Text></TouchableOpacity>)}</View>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <View style={{ flex: 1 }}><Field label="Left Open Count" value={addProductForm.leftOpenCount} onChangeText={v => setAddProductForm(s => ({ ...s, leftOpenCount: numericInput(v,false) }))} keyboardType="numeric" /></View>
+                  <View style={{ flex: 1 }}><Field label="Right Open Count" value={addProductForm.rightOpenCount} onChangeText={v => setAddProductForm(s => ({ ...s, rightOpenCount: numericInput(v,false) }))} keyboardType="numeric" /></View>
+                </View>
+                <Field label="Door Split Count" value={addProductForm.doorSplitCount} onChangeText={v => setAddProductForm(s => ({ ...s, doorSplitCount: numericInput(v,false) }))} keyboardType="numeric" />
+              </> : null}
+              {addProductForm.type.toLowerCase() === 'velcro net' ? <Text style={styles.formulaNote}>Cutting allowance +2 inch on width and height. Stock usage: 3 ft = {newProductQuantity > 0 ? (newProductQuantity / 3).toFixed(2) : '0.00'} running ft · 5 ft = {newProductQuantity > 0 ? (newProductQuantity / 5).toFixed(2) : '0.00'} running ft.</Text> : null}
+            </> : null}
+          </> : addProductForm.product === 'wallpaper' ? <>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flex: 1 }}><Field label="Width (inch)" value={addProductForm.width} onChangeText={v => setAddProductForm(s => ({ ...s, width: numericInput(v) }))} keyboardType="decimal-pad" /></View>
+              <View style={{ flex: 1 }}><Field label="Height (inch)" value={addProductForm.height} onChangeText={v => setAddProductForm(s => ({ ...s, height: numericInput(v) }))} keyboardType="decimal-pad" /></View>
+            </View>
+          </> : addProductForm.product === 'headboard' || addProductForm.product === 'flooring' ? <>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flex: 1 }}><Field label="Width (inch)" value={addProductForm.width} onChangeText={v => setAddProductForm(s => ({ ...s, width: numericInput(v) }))} keyboardType="decimal-pad" /></View>
+              <View style={{ flex: 1 }}><Field label="Height (inch)" value={addProductForm.height} onChangeText={v => setAddProductForm(s => ({ ...s, height: numericInput(v) }))} keyboardType="decimal-pad" /></View>
+            </View>
+            <Field label={addProductForm.product === 'headboard' ? 'Fabric Details' : 'Material / Colour'} value={addProductForm.fabric} onChangeText={v => setAddProductForm(s => ({ ...s, fabric: v }))} />
+            {addProductForm.product === 'headboard' ? <Field label="Fabric Required (metres) — Optional" value={addProductForm.manualFabricMtr} onChangeText={v => setAddProductForm(s => ({ ...s, manualFabricMtr: numericInput(v) }))} keyboardType="decimal-pad" /> : null}
+          </> : addProductForm.product === 'cushion' ? <>
+            <Field label="Material Required (mtr)" value={addProductForm.width} onChangeText={v => setAddProductForm(s => ({ ...s, width: numericInput(v) }))} keyboardType="decimal-pad" />
+            <Field label="Fabric / Description" value={addProductForm.fabric} onChangeText={v => setAddProductForm(s => ({ ...s, fabric: v }))} />
+          </> : addProductForm.product === 'accessories' ? <>
+            <Field label="Track / Rod Length (inch)" value={addProductForm.width} onChangeText={v => setAddProductForm(s => ({ ...s, width: numericInput(v) }))} keyboardType="decimal-pad" />
+          </> : null}
+          <Field label={`Rate (₹ / ${addProductForm.product === 'curtains' || (addProductForm.product === 'blinds' && addProductForm.type.toLowerCase() === 'roman') ? 'mtr' : getProduct(addProductForm.product).qtyUnit})`} value={addProductForm.price} onChangeText={v => setAddProductForm(s => ({ ...s, price: numericInput(v) }))} keyboardType="decimal-pad" />
+          <Field label="GST (%)" value={addProductForm.gst} onChangeText={v => setAddProductForm(s => ({ ...s, gst: numericInput(v) }))} keyboardType="decimal-pad" />
+          <View style={{ backgroundColor: '#FFF7EC', borderRadius: 12, padding: 12, marginVertical: 8 }}>
+            <Text style={styles.previewLabel}>AUTOMATIC QUANTITY</Text>
+            <Text style={styles.previewVal}>{newProductQuantity.toFixed(2)} {addProductForm.product === 'curtains' || (addProductForm.product === 'blinds' && addProductForm.type.toLowerCase() === 'roman') ? 'mtr' : getProduct(addProductForm.product).qtyUnit}</Text>
+            <Text style={styles.formulaNote}>Amount: {formatINR(newProductTotal)}</Text>
+            {addProductForm.product === 'wallpaper' ? <Text style={styles.formulaNote}>Normal Wallpaper: 50 sq.ft per roll (rounded up). Customize: square feet.</Text> : null}
           </View>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <View style={{ flex: 1 }}><Field label={`Quantity (${getProduct(addProductForm.product).qtyUnit})`} value={addProductForm.quantity} onChangeText={v => setAddProductForm(s => ({ ...s, quantity: numericInput(v) }))} keyboardType="decimal-pad" /></View>
-            <View style={{ flex: 1 }}><Field label="Rate (₹)" value={addProductForm.price} onChangeText={v => setAddProductForm(s => ({ ...s, price: numericInput(v) }))} keyboardType="decimal-pad" /></View>
-          </View>
-          <Field label="Fabric / Material Details" value={addProductForm.fabric} onChangeText={v => setAddProductForm(s => ({ ...s, fabric: v }))} />
-          <Text style={styles.formulaNote}>Line Total: {formatINR(calculateTotal(addProductForm.quantity, addProductForm.price))}</Text>
           <Button title="Add Product Item" icon="checkmark" variant="accent" onPress={addProductItem} />
         </Card>
       ) : null}
-            <Button title={showAddCurtain ? 'Close Add Curtains' : '+ Add Curtains'} icon="add" variant="accent" onPress={() => setShowAddCurtain(v => !v)} style={{ marginTop: 8 }} />
+      <Button title={showAddCurtain ? 'Close Add Curtains' : '+ Add Curtains'} icon="add" variant="accent" onPress={() => setShowAddCurtain(v => !v)} style={{ marginTop: 8 }} />
       {showAddCurtain ? (
         <Card style={{ marginTop: 10 }}>
           <Text style={styles.rowTitle}>New Main Curtain</Text>
