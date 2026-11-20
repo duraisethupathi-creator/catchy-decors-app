@@ -12,7 +12,7 @@ import type { Customer } from '../../src/types/customer';
 import type { Quotation } from '../../src/types/quotation';
 import { getQuotationsByCustomer } from '../../src/services/quotationService';
 import { getPayments } from '../../src/services/paymentService';
-import { getAllMeasurements, loadDraftMeasurements } from '../../src/services/measurementService';
+import { getAllMeasurements, loadDraftMeasurements, getAllAccessories, loadDraftAccessories } from '../../src/services/measurementService';
 import { getProduct } from '../../src/constants/products';
 
 export default function CustomerDetail() {
@@ -48,24 +48,43 @@ export default function CustomerDetail() {
   }
 
   async function downloadMeasurementsPdf() {
-    const [saved, draft] = await Promise.all([getAllMeasurements(), loadDraftMeasurements(customer.id)]);
-    const rows = [...saved.filter((m) => m.customer_id === customer.id), ...draft];
-    if (!rows.length) { return; }
-    const esc = (value: unknown) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const [savedMeasurements, draftMeasurements, savedAccessories, draftAccessories] = await Promise.all([
+      getAllMeasurements(), loadDraftMeasurements(customer.id), getAllAccessories(), loadDraftAccessories(customer.id),
+    ]);
+    const uniqueById = <T extends { id: string }>(rows: T[]) => Array.from(new Map(rows.map(row => [row.id, row])).values());
+    const measurements = uniqueById([
+      ...savedMeasurements.filter(row => row.customer_id === customer.id), ...draftMeasurements,
+    ]);
+    const accessories = uniqueById([
+      ...savedAccessories.filter(row => row.customer_id === customer.id), ...draftAccessories,
+    ]);
+    if (!measurements.length && !accessories.length) return;
+
+    const esc = (value: unknown) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     const detail = (value?: string) => {
       if (!value) return '';
       try {
         const meta = JSON.parse(value);
-        if (meta?.__mosquitoMeta === 1) return [meta.description, meta.frameColor ? `Frame: ${meta.frameColor}` : '', meta.leftOpenCount ? `Left: ${meta.leftOpenCount}` : '', meta.rightOpenCount ? `Right: ${meta.rightOpenCount}` : ''].filter(Boolean).join(' · ');
+        if (meta?.__mosquitoMeta === 1) return [meta.description, meta.frameColor ? `Frame: ${meta.frameColor}` : '', meta.openMethod ? `Opening: ${meta.openMethod}` : '', meta.leftOpenCount ? `Left open: ${meta.leftOpenCount}` : '', meta.rightOpenCount ? `Right open: ${meta.rightOpenCount}` : '', meta.doorSplitCount ? `Splits: ${meta.doorSplitCount}` : ''].filter(Boolean).join(' · ');
       } catch {}
       return value;
     };
-    const tableRows = rows.map((m, i) => `<tr><td>${i + 1}</td><td>${esc(m.area_name)}</td><td>${esc(getProduct(m.product_type).name)} ${esc(m.type || '')}</td><td>${esc(m.width)} × ${esc(m.height)} ${esc(m.measurement_unit || 'inch')}</td><td>${esc(detail(m.fabric_type))}</td><td>${Number(m.quantity || 0).toFixed(2)}</td></tr>`).join('');
-    const html = `<!doctype html><html><head><meta charset="utf-8"><style>@page{size:A4;margin:16mm}body{font-family:Arial;color:#17213d;font-size:11px}h1{color:#101D4A}table{width:100%;border-collapse:collapse;margin-top:18px}th{background:#101D4A;color:#fff;padding:8px}td{padding:8px;border-bottom:1px solid #ddd}small{color:#667085}</style></head><body><h1>CATCHY DECORS</h1><h2>Customer Measurement & Fabric Details</h2><b>${esc(customer.name)}</b><br>${esc(customer.phone)}<br>${esc(customer.address || '')}<br><small>Generated: ${new Date().toLocaleDateString('en-IN')}</small><table><tr><th>S.No</th><th>Area</th><th>Product</th><th>Measurements</th><th>Fabric / Details</th><th>Qty</th></tr>${tableRows}</table></body></html>`;
+    const measurementRows = measurements.map((m, i) => {
+      const fabric = [detail(m.fabric_type), m.fabric_area ? `Fabric area: ${m.fabric_area} sq.ft` : '', m.fabric_quantity_mtr ? `Fabric required: ${m.fabric_quantity_mtr} mtr` : ''].filter(Boolean).join(' · ');
+      const lining = m.lining_type ? `${m.lining_type}${m.lining_fabric ? ` — ${m.lining_fabric}` : ''}${m.lining_quantity ? ` · ${m.lining_quantity} mtr` : ''}` : '';
+      return `<tr><td>${i + 1}</td><td>${esc(m.area_name)}</td><td>${esc(getProduct(m.product_type).name)} ${esc(m.type || '')}</td><td>${esc(m.width)} × ${esc(m.height)} ${esc(m.measurement_unit || 'inch')}</td><td>${esc(m.part ?? '')}</td><td>${esc(fabric)}</td><td>${esc(lining)}</td><td>${Number(m.quantity || 0).toFixed(2)}</td></tr>`;
+    }).join('');
+    const accessoryRows = accessories.map((item, i) => `<tr><td>${i + 1}</td><td>${esc(item.area_name)}</td><td>${esc(item.track_type)}</td><td>${esc(item.width)} inch</td><td>${esc(item.part ?? '')}</td><td>${Number(item.quantity || 0).toFixed(2)}</td></tr>`).join('');
+    const tableStyle = 'width:100%;border-collapse:collapse;margin:12px 0 22px;font-size:10px;table-layout:auto';
+    const html = `<!doctype html><html><head><meta charset="utf-8"><style>@page{size:A4;margin:14mm}body{font-family:Arial,sans-serif;color:#17213d;font-size:11px}h1{color:#101D4A;margin-bottom:4px}.sub{color:#667085;font-size:10px}h2{font-size:15px;color:#101D4A;margin:22px 0 8px}table{${tableStyle}}th{background:#101D4A;color:#fff;padding:7px;text-align:left}td{padding:7px;border:1px solid #e3e6ed;vertical-align:top}tr{page-break-inside:avoid}</style></head><body><h1>CATCHY DECORS</h1><h2>Customer Work Details</h2><b>${esc(customer.name)}</b><br>${esc(customer.phone)}<br>${esc(customer.address || '')}<br><span class="sub">Generated: ${new Date().toLocaleDateString('en-IN')}</span>
+      <h2>Measurements & Fabric Details</h2>${measurements.length ? `<table><tr><th>S.No</th><th>Room / Area</th><th>Product</th><th>Size</th><th>Part</th><th>Fabric Details</th><th>Lining Details</th><th>Qty</th></tr>${measurementRows}</table>` : '<p class="sub">No measurement records.</p>'}
+      <h2>Accessories Details</h2>${accessories.length ? `<table><tr><th>S.No</th><th>Room / Area</th><th>Accessory / Track</th><th>Width</th><th>Part</th><th>Qty / Length</th></tr>${accessoryRows}</table>` : '<p class="sub">No accessories records.</p>'}
+      </body></html>`;
     const file = await Print.printToFileAsync({ html });
-    if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(file.uri, { mimeType: 'application/pdf', dialogTitle: 'Customer Measurements PDF' });
+    if (await Sharing.isAvailableAsync()) {
+      await Sharing.shareAsync(file.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: 'Open or Save Customer Work Details PDF' });
+    }
   }
-
   return (
     <ScrollView style={styles.root} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
       <View style={styles.header}>
