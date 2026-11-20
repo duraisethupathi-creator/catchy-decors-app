@@ -479,13 +479,13 @@ export default function EditQuotation() {
           <Text style={styles.rowTitle}>Add Product · Same Measurement Formula</Text>
           <Text style={styles.formulaNote}>Choose product and enter its normal measurement details. Quantity and total calculate automatically.</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 10 }}>
-            {PRODUCTS.map(p => <TouchableOpacity key={p.key} onPress={() => setAddProductForm(v => ({ ...v, product: p.key, type: p.typeOptions[0] ?? '', unit: 'inch', part: '', manualFabricMtr: '', additionalSqft: '', liningType: '' }))} style={{ paddingHorizontal: 11, paddingVertical: 8, borderRadius: 9, backgroundColor: addProductForm.product === p.key ? colors.navy : colors.chipBg }}><Text style={{ color: addProductForm.product === p.key ? '#fff' : colors.textDark, fontWeight: '700', fontSize: 12 }}>{p.name}</Text></TouchableOpacity>)}
+            {PRODUCTS.map(p => <TouchableOpacity key={p.key} onPress={() => setAddProductForm(v => ({ ...v, product: p.key, type: p.key === 'curtains' ? 'Main' : (p.typeOptions[0] ?? ''), unit: 'inch', part: '', manualFabricMtr: '', additionalSqft: '', liningType: '' }))} style={{ paddingHorizontal: 11, paddingVertical: 8, borderRadius: 9, backgroundColor: addProductForm.product === p.key ? colors.navy : colors.chipBg }}><Text style={{ color: addProductForm.product === p.key ? '#fff' : colors.textDark, fontWeight: '700', fontSize: 12 }}>{p.name}</Text></TouchableOpacity>)}
           </View>
           <Field label="Area / Room Name" value={addProductForm.area} onChangeText={v => setAddProductForm(s => ({ ...s, area: v }))} placeholder="e.g. Hall Window" />
-          {getProduct(addProductForm.product).typeOptions.length > 0 ? <>
-            <Text style={styles.miniLabel}>{getProduct(addProductForm.product).typeLabel}</Text>
+          {(addProductForm.product === 'curtains' || getProduct(addProductForm.product).typeOptions.length > 0) ? <>
+            <Text style={styles.miniLabel}>{addProductForm.product === 'curtains' ? 'Curtain Layer' : getProduct(addProductForm.product).typeLabel}</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 10 }}>
-              {getProduct(addProductForm.product).typeOptions.map(t => <TouchableOpacity key={t} onPress={() => setAddProductForm(v => ({ ...v, type: t }))} style={{ paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8, backgroundColor: addProductForm.type === t ? colors.navy : colors.chipBg }}><Text style={{ color: addProductForm.type === t ? '#fff' : colors.textDark, fontSize: 11, fontWeight: '700' }}>{t}</Text></TouchableOpacity>)}
+              {(addProductForm.product === 'curtains' ? ['Main','Sheer'] : getProduct(addProductForm.product).typeOptions).map(t => <TouchableOpacity key={t} onPress={() => setAddProductForm(v => ({ ...v, type: t }))} style={{ paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8, backgroundColor: addProductForm.type === t ? colors.navy : colors.chipBg }}><Text style={{ color: addProductForm.type === t ? '#fff' : colors.textDark, fontSize: 11, fontWeight: '700' }}>{t}</Text></TouchableOpacity>)}
             </View>
           </> : null}
           {addProductForm.product === 'curtains' ? <>
