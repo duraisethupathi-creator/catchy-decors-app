@@ -96,6 +96,10 @@ export async function clearDraftAccessories(customerId: string): Promise<void> {
   await AsyncStorage.removeItem(`cd_acc_draft_${customerId}`);
 }
 
+export async function getAllAccessories(): Promise<Accessory[]> {
+  return loadAll<Accessory>('cd_accessories');
+}
+
 export async function appendAccessories(rows: Accessory[]): Promise<void> {
   const store = 'cd_accessories';
   const all = await loadAll<Accessory>(store);
