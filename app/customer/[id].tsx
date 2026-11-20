@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import * as IntentLauncher from 'expo-intent-launcher';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -48,24 +49,27 @@ export default function CustomerDetail() {
   }
 
   async function downloadMeasurementsPdf() {
-    const [savedMeasurements, draftMeasurements, savedAccessories, draftAccessories] = await Promise.all([
-      getAllMeasurements(), loadDraftMeasurements(customer.id), getAllAccessories(), loadDraftAccessories(customer.id),
+    const [savedMeasurements, draftMeasurements, savedAccessories, draftAccessories, quotations] = await Promise.all([
+      getAllMeasurements(), loadDraftMeasurements(customer.id), getAllAccessories(), loadDraftAccessories(customer.id), getQuotationsByCustomer(customer.id),
     ]);
     const uniqueById = <T extends { id: string }>(rows: T[]) => Array.from(new Map(rows.map(row => [row.id, row])).values());
     const measurements = uniqueById([
       ...savedMeasurements.filter(row => row.customer_id === customer.id), ...draftMeasurements,
+      ...quotations.flatMap(q => q.items ?? []),
     ]);
     const accessories = uniqueById([
       ...savedAccessories.filter(row => row.customer_id === customer.id), ...draftAccessories,
+      ...quotations.flatMap(q => q.accessories ?? []),
     ]);
-    if (!measurements.length && !accessories.length) return;
+    const photos = quotations.flatMap(q => (q.reference_photos ?? []).map(photo => ({ ...photo, quotation_number: q.quotation_number })));
+    if (!measurements.length && !accessories.length && !photos.length) return;
 
     const esc = (value: unknown) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     const detail = (value?: string) => {
       if (!value) return '';
       try {
         const meta = JSON.parse(value);
-        if (meta?.__mosquitoMeta === 1) return [meta.description, meta.frameColor ? `Frame: ${meta.frameColor}` : '', meta.openMethod ? `Opening: ${meta.openMethod}` : '', meta.leftOpenCount ? `Left open: ${meta.leftOpenCount}` : '', meta.rightOpenCount ? `Right open: ${meta.rightOpenCount}` : '', meta.doorSplitCount ? `Splits: ${meta.doorSplitCount}` : ''].filter(Boolean).join(' · ');
+        if (meta?.__mosquitoMeta === 1) return [meta.description, meta.frameColor ? `Frame: ${meta.frameColor}` : '', meta.openMethod ? `Opening: ${meta.openMethod}` : '', meta.leftOpenCount ? `Left open: ${meta.leftOpenCount}` : '', meta.rightOpenCount ? `Right open: ${meta.rightOpenCount}` : '', meta.doorSplitCount ? `Splits: ${meta.doorSplitCount}` : '', meta.additionalSqft ? `Additional area: ${meta.additionalSqft} sq.ft` : ''].filter(Boolean).join(' · ');
       } catch {}
       return value;
     };
@@ -74,15 +78,24 @@ export default function CustomerDetail() {
       const lining = m.lining_type ? `${m.lining_type}${m.lining_fabric ? ` — ${m.lining_fabric}` : ''}${m.lining_quantity ? ` · ${m.lining_quantity} mtr` : ''}` : '';
       return `<tr><td>${i + 1}</td><td>${esc(m.area_name)}</td><td>${esc(getProduct(m.product_type).name)} ${esc(m.type || '')}</td><td>${esc(m.width)} × ${esc(m.height)} ${esc(m.measurement_unit || 'inch')}</td><td>${esc(m.part ?? '')}</td><td>${esc(fabric)}</td><td>${esc(lining)}</td><td>${Number(m.quantity || 0).toFixed(2)}</td></tr>`;
     }).join('');
-    const accessoryRows = accessories.map((item, i) => `<tr><td>${i + 1}</td><td>${esc(item.area_name)}</td><td>${esc(item.track_type)}</td><td>${esc(item.width)} inch</td><td>${esc(item.part ?? '')}</td><td>${Number(item.quantity || 0).toFixed(2)}</td></tr>`).join('');
-    const tableStyle = 'width:100%;border-collapse:collapse;margin:12px 0 22px;font-size:10px;table-layout:auto';
-    const html = `<!doctype html><html><head><meta charset="utf-8"><style>@page{size:A4;margin:14mm}body{font-family:Arial,sans-serif;color:#17213d;font-size:11px}h1{color:#101D4A;margin-bottom:4px}.sub{color:#667085;font-size:10px}h2{font-size:15px;color:#101D4A;margin:22px 0 8px}table{${tableStyle}}th{background:#101D4A;color:#fff;padding:7px;text-align:left}td{padding:7px;border:1px solid #e3e6ed;vertical-align:top}tr{page-break-inside:avoid}</style></head><body><h1>CATCHY DECORS</h1><h2>Customer Work Details</h2><b>${esc(customer.name)}</b><br>${esc(customer.phone)}<br>${esc(customer.address || '')}<br><span class="sub">Generated: ${new Date().toLocaleDateString('en-IN')}</span>
-      <h2>Measurements & Fabric Details</h2>${measurements.length ? `<table><tr><th>S.No</th><th>Room / Area</th><th>Product</th><th>Size</th><th>Part</th><th>Fabric Details</th><th>Lining Details</th><th>Qty</th></tr>${measurementRows}</table>` : '<p class="sub">No measurement records.</p>'}
-      <h2>Accessories Details</h2>${accessories.length ? `<table><tr><th>S.No</th><th>Room / Area</th><th>Accessory / Track</th><th>Width</th><th>Part</th><th>Qty / Length</th></tr>${accessoryRows}</table>` : '<p class="sub">No accessories records.</p>'}
-      </body></html>`;
+    const accessoryRows = accessories.map((item, i) => `<tr><td>${i + 1}</td><td>${esc(item.area_name)}</td><td>${esc(item.track_type)}</td><td>${esc(item.width)} inch</td><td>${esc(item.part ?? '')}</td><td>${Number(item.quantity || 0).toFixed(2)}</td><td>₹${Number(item.price || 0).toLocaleString('en-IN')}</td><td>₹${Number(item.total || 0).toLocaleString('en-IN')}</td></tr>`).join('');
+    const photoHtml = photos.length ? photos.map((photo, i) => `<div class="photo"><b>${esc(photo.area_name || 'General')} — ${esc(photo.label || 'Reference Photo')}</b><div class="sub">Quotation: ${esc(photo.quotation_number || '')}</div><img src="${photo.data_uri}" /></div>`).join('') : '<p class="sub">No reference photos attached.</p>';
+    const tableStyle = 'width:100%;border-collapse:collapse;margin:12px 0 22px;font-size:9px;table-layout:auto';
+    const html = `<!doctype html><html><head><meta charset="utf-8"><style>@page{size:A4;margin:12mm}body{font-family:Arial,sans-serif;color:#17213d;font-size:11px}h1{color:#101D4A;margin-bottom:4px}.sub{color:#667085;font-size:9px}h2{font-size:15px;color:#101D4A;margin:22px 0 8px}table{ ${tableStyle} }th{background:#101D4A;color:#fff;padding:6px;text-align:left}td{padding:6px;border:1px solid #e3e6ed;vertical-align:top}tr{page-break-inside:avoid}.photo{page-break-inside:avoid;margin:14px 0 20px}.photo img{display:block;max-width:100%;max-height:230px;object-fit:contain;margin-top:8px;border:1px solid #e3e6ed;padding:4px}</style></head><body><h1>CATCHY DECORS</h1><h2>Customer Work Details</h2><b>${esc(customer.name)}</b><br>${esc(customer.phone)}<br>${esc(customer.address || '')}<br><span class="sub">Generated: ${new Date().toLocaleDateString('en-IN')}</span>
+      <h2>All Products — Measurements & Fabric Details</h2>${measurements.length ? `<table><tr><th>S.No</th><th>Room / Area</th><th>Product / Type</th><th>Size</th><th>Part</th><th>Fabric / Material Details</th><th>Lining Details</th><th>Qty</th></tr>${measurementRows}</table>` : '<p class="sub">No measurement records.</p>'}
+      <h2>Accessories Details</h2>${accessories.length ? `<table><tr><th>S.No</th><th>Room / Area</th><th>Accessory / Track</th><th>Width</th><th>Part</th><th>Qty / Length</th><th>Rate</th><th>Amount</th></tr>${accessoryRows}</table>` : '<p class="sub">No accessories records.</p>'}
+      <h2>Attached Reference Photos</h2>${photoHtml}</body></html>`;
     const file = await Print.printToFileAsync({ html });
-    if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(file.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: 'Open or Save Customer Work Details PDF' });
+    // Open the generated PDF directly with Android's installed PDF viewer.
+    try {
+      const contentUri = await (await import('expo-file-system')).getContentUriAsync(file.uri);
+      await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+        data: contentUri, type: 'application/pdf', flags: 1,
+      });
+    } catch {
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(file.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: 'Open Customer Work Details PDF' });
+      }
     }
   }
   return (
