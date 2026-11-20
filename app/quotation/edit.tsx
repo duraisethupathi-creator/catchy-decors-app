@@ -7,7 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Button, Card, Field, SectionTitle } from '../../src/components/common';
 import { toast } from '../../src/components/common/ui';
 import { colors } from '../../src/constants/colors';
-import { quantityColumnLabel, getProduct } from '../../src/constants/products';
+import { PRODUCTS, quantityColumnLabel, getProduct, type ProductKey } from '../../src/constants/products';
 import { getCustomer } from '../../src/services/customerService';
 import {
   loadDraftMeasurements,
@@ -58,6 +58,8 @@ export default function EditQuotation() {
   const [referencePhotos, setReferencePhotos] = useState<MaterialReferencePhoto[]>([]);
   const [showAddCurtain, setShowAddCurtain] = useState(false);
   const [editingItem, setEditingItem] = useState<Measurement | null>(null);
+  const [showAddProduct, setShowAddProduct] = useState(false);
+  const [addProductForm, setAddProductForm] = useState({ product: 'blinds' as ProductKey, area: '', type: 'Roller', width: '', height: '', quantity: '', price: '', fabric: '' });
   const [itemForm, setItemForm] = useState({ area: '', type: '', width: '', height: '', quantity: '', price: '', fabric: '', fabricArea: '', part: '', liningType: '', liningFabric: '', liningQuantity: '', liningPrice: '' });
   const [newCurtain, setNewCurtain] = useState({ area: '', part: '', width: '', height: '', fabric: '', lining: '', liningFabric: '', price: '' });
   const draftReady = useRef(false);
@@ -138,6 +140,39 @@ export default function EditQuotation() {
     if (sqft) parts.push(`fabric area ${sqft} sq.ft`);
     return parts.length ? `Fabric total: ${parts.join(' · ')}` : '';
   })();
+
+  function addProductItem() {
+    if (!customer) return;
+    const def = getProduct(addProductForm.product);
+    const quantity = Math.max(0, Number(addProductForm.quantity) || 0);
+    const price = Math.max(0, Number(addProductForm.price) || 0);
+    if (!addProductForm.area.trim() || quantity <= 0) {
+      toast('Enter Area Name and Quantity');
+      return;
+    }
+    const item: Measurement = {
+      id: uid(), customer_id: customer.id, product_type: addProductForm.product,
+      area_name: addProductForm.area.trim(), type: addProductForm.type.trim(),
+      width: Math.max(0, Number(addProductForm.width) || 0),
+      height: def.usesHeight ? Math.max(0, Number(addProductForm.height) || 0) : 0,
+      quantity, price, total: calculateTotal(quantity, price),
+      fabric_type: addProductForm.fabric.trim(),
+    };
+    setItems(current => [...current, item]);
+    setAddProductForm({ product: 'blinds', area: '', type: 'Roller', width: '', height: '', quantity: '', price: '', fabric: '' });
+    setShowAddProduct(false);
+    toast(def.name + ' added to quotation');
+  }
+
+  function removeQuotationItem(item: Measurement) {
+    Alert.alert('Remove item?', 'This product will be removed from this quotation.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: () => {
+        setItems(current => current.filter(row => row.id !== item.id));
+        toast('Item removed from quotation');
+      }},
+    ]);
+  }
 
   function openItemEditor(item: Measurement) {
     setEditingItem(item);
@@ -388,19 +423,59 @@ export default function EditQuotation() {
           const colLabel = quantityColumnLabel(it.product_type);
           const unitLabel = colLabel === 'Qty' ? `Qty (${def.qtyUnit})` : colLabel;
           return (
-            <TouchableOpacity key={it.id} style={styles.lineRow} activeOpacity={0.75} onPress={() => openItemEditor(it)}>
-              <View style={{ flex: 1, marginRight: 8 }}>
-                <Text style={styles.lineText}>{i + 1}. {it.area_name} — {def.name}{it.product_type==='curtains'&&it.fabric_type ? ` · Fabric: ${it.fabric_type}` : ''}{it.product_type==='curtains'&&it.lining_type ? ` · ${it.lining_type}${it.lining_fabric ? `: ${it.lining_fabric}` : ''}` : ''} · {unitLabel} {it.quantity}</Text>
+            <View key={it.id} style={styles.lineRow}>
+              <TouchableOpacity style={{ flex: 1, marginRight: 8 }} activeOpacity={0.75} onPress={() => openItemEditor(it)}>
+                <Text style={styles.lineText}>{i + 1}. {it.area_name} — {def.name}{it.type ? ` · ${it.type}` : ''}{it.product_type==='curtains'&&it.fabric_type ? ` · Fabric: ${it.fabric_type}` : ''}{it.product_type==='curtains'&&it.lining_type ? ` · ${it.lining_type}${it.lining_fabric ? `: ${it.lining_fabric}` : ''}` : ''} · {unitLabel} {it.quantity}</Text>
                 <Text style={{ color: colors.orange, fontSize: 11, fontWeight: '800', marginTop: 4 }}>✎ Tap to edit item</Text>
+              </TouchableOpacity>
+              <View style={{ alignItems: 'flex-end', justifyContent: 'space-between' }}>
+                <Text style={styles.lineTotal}>{formatINR(it.total, false)}</Text>
+                <TouchableOpacity onPress={() => removeQuotationItem(it)} style={{ padding: 6, marginTop: 6 }}>
+                  <Ionicons name="trash-outline" size={19} color={colors.danger} />
+                </TouchableOpacity>
               </View>
-              <Text style={styles.lineTotal}>{formatINR(it.total, false)}</Text>
-            </TouchableOpacity>
+            </View>
           );
         })
       )}
 
 
-      <Button title={showAddCurtain ? 'Close Add Curtains' : '+ Add Curtains'} icon="add" variant="accent" onPress={() => setShowAddCurtain(v => !v)} style={{ marginTop: 8 }} />
+      <Button title={showAddProduct ? 'Close Add Product' : '+ Add New Product'} icon="add-circle-outline" variant="accent" onPress={() => setShowAddProduct(v => !v)} style={{ marginTop: 8 }} />
+      {showAddProduct ? (
+        <Card style={{ marginTop: 10 }}>
+          <Text style={styles.rowTitle}>Add Product to Existing Quotation</Text>
+          <Text style={styles.formulaNote}>Choose product, enter quantity and rate. This adds a new line without changing the quotation number.</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 10 }}>
+            {PRODUCTS.filter(p => p.key !== 'accessories').map(p => (
+              <TouchableOpacity key={p.key} onPress={() => setAddProductForm(v => ({ ...v, product: p.key, type: p.typeOptions[0] ?? '' }))} style={{ paddingHorizontal: 11, paddingVertical: 8, borderRadius: 9, backgroundColor: addProductForm.product === p.key ? colors.navy : colors.chipBg }}>
+                <Text style={{ color: addProductForm.product === p.key ? '#fff' : colors.textDark, fontWeight: '700', fontSize: 12 }}>{p.name}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Field label="Area / Room Name" value={addProductForm.area} onChangeText={v => setAddProductForm(s => ({ ...s, area: v }))} placeholder="e.g. Hall Window" />
+          {getProduct(addProductForm.product).typeOptions.length > 0 ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 10 }}>
+              {getProduct(addProductForm.product).typeOptions.map(t => (
+                <TouchableOpacity key={t} onPress={() => setAddProductForm(v => ({ ...v, type: t }))} style={{ paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8, backgroundColor: addProductForm.type === t ? colors.navy : colors.chipBg }}>
+                  <Text style={{ color: addProductForm.type === t ? '#fff' : colors.textDark, fontSize: 11, fontWeight: '700' }}>{t}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : null}
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <View style={{ flex: 1 }}><Field label="Width" value={addProductForm.width} onChangeText={v => setAddProductForm(s => ({ ...s, width: numericInput(v) }))} keyboardType="decimal-pad" /></View>
+            <View style={{ flex: 1 }}><Field label="Height" value={addProductForm.height} onChangeText={v => setAddProductForm(s => ({ ...s, height: numericInput(v) }))} keyboardType="decimal-pad" /></View>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <View style={{ flex: 1 }}><Field label={`Quantity (${getProduct(addProductForm.product).qtyUnit})`} value={addProductForm.quantity} onChangeText={v => setAddProductForm(s => ({ ...s, quantity: numericInput(v) }))} keyboardType="decimal-pad" /></View>
+            <View style={{ flex: 1 }}><Field label="Rate (₹)" value={addProductForm.price} onChangeText={v => setAddProductForm(s => ({ ...s, price: numericInput(v) }))} keyboardType="decimal-pad" /></View>
+          </View>
+          <Field label="Fabric / Material Details" value={addProductForm.fabric} onChangeText={v => setAddProductForm(s => ({ ...s, fabric: v }))} />
+          <Text style={styles.formulaNote}>Line Total: {formatINR(calculateTotal(addProductForm.quantity, addProductForm.price))}</Text>
+          <Button title="Add Product Item" icon="checkmark" variant="accent" onPress={addProductItem} />
+        </Card>
+      ) : null}
+            <Button title={showAddCurtain ? 'Close Add Curtains' : '+ Add Curtains'} icon="add" variant="accent" onPress={() => setShowAddCurtain(v => !v)} style={{ marginTop: 8 }} />
       {showAddCurtain ? (
         <Card style={{ marginTop: 10 }}>
           <Text style={styles.rowTitle}>New Main Curtain</Text>
