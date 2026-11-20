@@ -166,6 +166,32 @@ export default function NewQuotation() {
     ...sheerFabricTotals.map(f => `Sheer Fabric — ${f.name}: ${f.quantity} mtr`),
   ].join(' | ');
 
+  function applyFabricGroupRate(name: string, layer: 'Main' | 'Sheer', value: string) {
+    const rate = Number(numericInput(value)) || 0;
+    const key = name.trim().toLocaleLowerCase();
+    setItems(current => current.map(item => {
+      const matchesLayer = layer === 'Sheer' ? item.type === 'Sheer' : item.type !== 'Sheer';
+      const matches = item.product_type === 'curtains' && matchesLayer && (item.fabric_type ?? '').trim().toLocaleLowerCase() === key;
+      return matches ? { ...item, price: rate, total: calculateTotal(item.quantity, rate) } : item;
+    }));
+  }
+  function updateFabricItemRate(id: string, value: string) {
+    const rate = Number(numericInput(value)) || 0;
+    setItems(current => current.map(item => item.id === id ? { ...item, price: rate, total: calculateTotal(item.quantity, rate) } : item));
+  }
+  function applyCommonLiningRate(value: string) {
+    const rate = Number(numericInput(value)) || 0;
+    setItems(current => current.map(item => item.product_type === 'curtains' && item.type !== 'Sheer' && !!item.lining_type
+      ? { ...item, lining_price: rate, lining_total: calculateTotal(Number(item.lining_quantity ?? item.quantity) || 0, rate) }
+      : item));
+  }
+  function updateLiningItemRate(id: string, value: string) {
+    const rate = Number(numericInput(value)) || 0;
+    setItems(current => current.map(item => item.id === id
+      ? { ...item, lining_price: rate, lining_total: calculateTotal(Number(item.lining_quantity ?? item.quantity) || 0, rate) }
+      : item));
+  }
+
   function updExtra(id: string, patch: Partial<ExtraChargeRow>) {
     setCharges((c) => ({ ...c, extras: c.extras.map((r) => (r.id === id ? { ...r, ...patch } : r)) }));
   }
@@ -462,19 +488,7 @@ export default function NewQuotation() {
         <Field label="Description" value={charges.additionalDesc} onChangeText={(t) => setCharges({ ...charges, additionalDesc: t })} placeholder="e.g. Material handling" />
         <Field label="Additional Charges (₹)" value={charges.additionalAmount} onChangeText={(t) => setCharges({ ...charges, additionalAmount: numericInput(t) })} keyboardType="numeric" />
 
-        <Text style={styles.chargeTitle}>Lining Charges</Text>
-        {liningItems.length ? liningItems.map((item) => {
-          const qty = Number(item.lining_quantity ?? item.quantity) || 0;
-          const rate = Number(item.lining_price) || 0;
-          return <View key={item.id} style={{ backgroundColor: colors.chipBg, borderRadius: 10, padding: 10, marginTop: 8 }}>
-            <Text style={{ color: colors.navy, fontWeight: '800', marginBottom: 6 }}>{item.lining_type} — {item.area_name || 'Curtain'}</Text>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <View style={{ flex: 1 }}><Field label="Required (mtr)" value={qty.toFixed(2)} editable={false}/></View>
-              <View style={{ flex: 1 }}><Field label="Rate / mtr (₹)" value={String(item.lining_price ?? '')} onChangeText={(v) => setItems(current => current.map(x => x.id === item.id ? { ...x, lining_price: Number(numericInput(v)) || 0, lining_total: calculateTotal(qty, v) } : x))} keyboardType="decimal-pad" placeholder="Enter rate"/></View>
-            </View>
-            <Text style={styles.formulaNote}>{qty.toFixed(2)} mtr × ₹{rate.toFixed(2)} = {formatINR(calculateTotal(qty, rate))}</Text>
-          </View>;
-        }) : <Text style={styles.formulaNote}>Main Curtain-ல் Blackout அல்லது Semi Lining select செய்தால் இங்கே வரும்.</Text>}
+        <Text style={styles.formulaNote}>Fabric and lining rates are entered together in the final Rate & Amount section below.</Text>
 
         <Text style={styles.chargeTitle}>Fabric Quantity Summary</Text>
         {mainFabricTotals.length || sheerFabricTotals.length ? (
@@ -544,6 +558,46 @@ export default function NewQuotation() {
 
         <Text style={styles.chargeTitle}>Discount</Text>
         <Field label="Discount (₹)" value={charges.discount} onChangeText={(t) => setCharges({ ...charges, discount: numericInput(t) })} keyboardType="numeric" />
+      </Card>
+
+      <SectionTitle>
+        <Text style={{ fontSize: 16, fontWeight: '800', color: colors.text }}>Final Rate & Amount</Text>
+      </SectionTitle>
+      <Card>
+        <Text style={styles.chargeTitle}>Fabric Rates — Common Rate by Fabric</Text>
+        <Text style={styles.formulaNote}>ஒரே fabric name பயன்படுத்திய rooms-க்கு common rate apply ஆகும். கீழே தனி item rate மாற்றினால் அந்த room மட்டும் override ஆகும்.</Text>
+        {[...mainFabricTotals.map(f => ({ ...f, layer: 'Main' as const })), ...sheerFabricTotals.map(f => ({ ...f, layer: 'Sheer' as const }))].map(group => {
+          const matched = items.filter(item => item.product_type === 'curtains' && (group.layer === 'Sheer' ? item.type === 'Sheer' : item.type !== 'Sheer') && (item.fabric_type ?? '').trim().toLocaleLowerCase() === group.name.trim().toLocaleLowerCase());
+          const commonRate = matched[0]?.price ?? 0;
+          return <View key={group.layer + group.name} style={{ backgroundColor: colors.chipBg, borderRadius: 10, padding: 10, marginTop: 9 }}>
+            <Text style={{ color: colors.navy, fontWeight: '800', marginBottom: 4 }}>{group.layer} Fabric — {group.name}</Text>
+            <Text style={styles.formulaNote}>Total required: {group.quantity.toFixed(2)} mtr</Text>
+            <Field label="Common Fabric Rate / mtr (₹)" value={String(commonRate)} onChangeText={v => applyFabricGroupRate(group.name, group.layer, v)} keyboardType="decimal-pad" placeholder="Enter common rate"/>
+            {matched.map(item => <View key={item.id} style={{ marginTop: 5 }}>
+              <Field label={`${item.area_name || 'Room'} — Individual Rate Override / mtr (₹)`} value={String(item.price ?? '')} onChangeText={v => updateFabricItemRate(item.id, v)} keyboardType="decimal-pad"/>
+              <Text style={styles.formulaNote}>{Number(item.quantity || 0).toFixed(2)} mtr × ₹{Number(item.price || 0).toFixed(2)} = {formatINR(calculateTotal(item.quantity, item.price))}</Text>
+            </View>)}
+          </View>;
+        })}
+        {!mainFabricTotals.length && !sheerFabricTotals.length ? <Text style={styles.formulaNote}>Fabric name enter செய்த curtain items இங்கே வரும்.</Text> : null}
+
+        {liningItems.length ? <>
+          <Text style={[styles.chargeTitle, { marginTop: 16 }]}>Lining Rate — Common Rate</Text>
+          <Text style={styles.formulaNote}>இந்த rate எல்லா Semi / Blackout lining items-க்கும் apply ஆகும். Room-wise rate தனியாக மாற்றலாம்.</Text>
+          <Field label="Common Lining Rate / mtr (₹)" value={String(liningItems[0]?.lining_price ?? 0)} onChangeText={applyCommonLiningRate} keyboardType="decimal-pad" placeholder="Enter common lining rate"/>
+          {liningItems.map(item => {
+            const qty = Number(item.lining_quantity ?? item.quantity) || 0;
+            const rate = Number(item.lining_price) || 0;
+            return <View key={item.id} style={{ backgroundColor: colors.chipBg, borderRadius: 10, padding: 10, marginTop: 8 }}>
+              <Text style={{ color: colors.navy, fontWeight: '800', marginBottom: 5 }}>{item.lining_type} — {item.area_name || 'Curtain'}</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <View style={{ flex: 1 }}><Field label="Required (mtr)" value={qty.toFixed(2)} editable={false}/></View>
+                <View style={{ flex: 1 }}><Field label="Individual Rate Override (₹ / mtr)" value={String(item.lining_price ?? '')} onChangeText={v => updateLiningItemRate(item.id, v)} keyboardType="decimal-pad"/></View>
+              </View>
+              <Text style={styles.formulaNote}>{qty.toFixed(2)} mtr × ₹{rate.toFixed(2)} = {formatINR(calculateTotal(qty, rate))}</Text>
+            </View>;
+          })}
+        </> : null}
       </Card>
 
       <Card style={{ marginTop: 14 }}>
