@@ -1,4 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import * as IntentLauncher from 'expo-intent-launcher';
 import { Alert, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +14,8 @@ import { formatDate } from '../../src/utils/currency';
 import type { Customer } from '../../src/types/customer';
 import type { Quotation } from '../../src/types/quotation';
 import { onSyncStateChange } from '../../src/services/db';
+import { getAllMeasurements, loadDraftMeasurements, getAllAccessories, loadDraftAccessories } from '../../src/services/measurementService';
+import { getProduct } from '../../src/constants/products';
 
 export default function Customers() {
   const [rows, setRows] = useState<Customer[]>([]);
@@ -59,6 +64,42 @@ export default function Customers() {
     router.push(`/measurement/new?customerId=${c.id}` as never);
   }
 
+  async function downloadCustomerWorkPdf(c: Customer) {
+    const [savedMeasurements, draftMeasurements, savedAccessories, draftAccessories, quotations] = await Promise.all([
+      getAllMeasurements(), loadDraftMeasurements(c.id), getAllAccessories(), loadDraftAccessories(c.id), getQuotationsByCustomer(c.id),
+    ]);
+    const uniqueById = <T extends { id: string }>(items: T[]) => Array.from(new Map(items.map(item => [item.id, item])).values());
+    const measurements = uniqueById([
+      ...savedMeasurements.filter(item => item.customer_id === c.id), ...draftMeasurements,
+      ...quotations.flatMap(q => q.items ?? []),
+    ]);
+    const accessories = uniqueById([
+      ...savedAccessories.filter(item => item.customer_id === c.id), ...draftAccessories,
+      ...quotations.flatMap(q => q.accessories ?? []),
+    ]);
+    const photos = quotations.flatMap(q => (q.reference_photos ?? []).map(photo => ({ ...photo, quotation_number: q.quotation_number })));
+    const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    const measurementRows = measurements.map((m, i) => {
+      const fabric = [m.fabric_type, m.fabric_area ? `Fabric area: ${m.fabric_area} sq.ft` : '', m.fabric_quantity_mtr ? `Fabric: ${m.fabric_quantity_mtr} mtr` : ''].filter(Boolean).join(' · ');
+      const lining = [m.lining_type, m.lining_fabric, m.lining_quantity ? `${m.lining_quantity} mtr` : ''].filter(Boolean).join(' · ');
+      return `<tr><td>${i+1}</td><td>${esc(m.area_name)}</td><td>${esc(getProduct(m.product_type).name)} ${esc(m.type || '')}</td><td>${esc(m.width)} × ${esc(m.height)} ${esc(m.measurement_unit || 'inch')}</td><td>${esc(m.part ?? '')}</td><td>${esc(fabric)}</td><td>${esc(lining)}</td><td>${Number(m.quantity || 0).toFixed(2)}</td></tr>`;
+    }).join('');
+    const accessoryRows = accessories.map((a, i) => `<tr><td>${i+1}</td><td>${esc(a.area_name)}</td><td>${esc(a.track_type)}</td><td>${esc(a.width)} inch</td><td>${esc(a.part ?? '')}</td><td>${Number(a.quantity || 0).toFixed(2)}</td><td>₹${Number(a.price || 0).toLocaleString('en-IN')}</td><td>₹${Number(a.total || 0).toLocaleString('en-IN')}</td></tr>`).join('');
+    const photoHtml = photos.map(p => `<div style="margin:14px 0;page-break-inside:avoid"><b>${esc(p.area_name || 'General')} — ${esc(p.label || 'Reference Photo')}</b><div>${esc(p.quotation_number || '')}</div><img style="max-width:100%;max-height:220px;object-fit:contain" src="${p.data_uri}"/></div>`).join('');
+    if (!measurements.length && !accessories.length && !photos.length) {
+      Alert.alert('No work details', 'இந்த customer-க்கு measurements, accessories அல்லது photos எதுவும் இல்லை.');
+      return;
+    }
+    const html = `<!doctype html><html><head><meta charset="utf-8"/><style>@page{size:A4;margin:12mm}body{font-family:Arial;color:#17213d;font-size:10px}h1,h2{color:#101D4A}table{width:100%;border-collapse:collapse;margin:10px 0 20px}th{background:#101D4A;color:white}th,td{padding:6px;border:1px solid #ddd;text-align:left;vertical-align:top}tr{page-break-inside:avoid}</style></head><body><h1>CATCHY DECORS</h1><h2>Customer Work Details</h2><b>${esc(c.name)}</b><br/>${esc(c.phone)}<br/>${esc(c.address || '')}<h2>Measurements & Fabric Details</h2>${measurements.length ? `<table><tr><th>#</th><th>Area</th><th>Product</th><th>Size</th><th>Part</th><th>Fabric</th><th>Lining</th><th>Qty</th></tr>${measurementRows}</table>` : '<p>No measurement records.</p>'}<h2>Accessories Details</h2>${accessories.length ? `<table><tr><th>#</th><th>Area</th><th>Accessory</th><th>Width</th><th>Part</th><th>Qty</th><th>Rate</th><th>Amount</th></tr>${accessoryRows}</table>` : '<p>No accessories records.</p>'}<h2>Attached Reference Photos</h2>${photoHtml || '<p>No reference photos attached.</p>'}</body></html>`;
+    const file = await Print.printToFileAsync({ html });
+    try {
+      const contentUri = await (await import('expo-file-system')).getContentUriAsync(file.uri);
+      await IntentLauncher.startActivityAsync('android.intent.action.VIEW', { data: contentUri, type: 'application/pdf', flags: 1 });
+    } catch {
+      if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(file.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: 'Open Customer Work Details PDF' });
+    }
+  }
+
   if (selected) {
     return (
       <View style={styles.root}>
@@ -89,6 +130,7 @@ export default function Customers() {
             <Button title="New Measurement" icon="resize" variant="accent" style={{ flex: 1 }} onPress={() => newMeasurementFor(selected)} />
             <Button title="New Quotation" icon="document" style={{ flex: 1 }} onPress={() => router.push(`/quotation/new?customerId=${selected.id}` as never)} />
           </View>
+          <Button title="Download Measurements & Fabric PDF" icon="download-outline" variant="outline" style={{ marginTop: 10 }} onPress={() => downloadCustomerWorkPdf(selected)} />
           <Text style={styles.secTitle}>Previous Quotations ({history.length})</Text>
           {history.length === 0 ? (
             <EmptyState icon="📄" title="No quotations yet" subtitle="Create the first quotation for this customer" />
