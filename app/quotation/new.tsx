@@ -65,6 +65,8 @@ export default function NewQuotation() {
   const [qNumber, setQNumber] = useState('');
   const [charges, setCharges] = useState<ChargesBundle>(emptyChargesBundle);
   const [saving, setSaving] = useState(false);
+  const [fabricCommonRates, setFabricCommonRates] = useState<Record<string, string>>({});
+  const [commonLiningRate, setCommonLiningRate] = useState('');
   const [referencePhotos, setReferencePhotos] = useState<MaterialReferencePhoto[]>([]);
   const draftReady = useRef(false);
   const draftSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -169,6 +171,7 @@ export default function NewQuotation() {
   function applyFabricGroupRate(name: string, layer: 'Main' | 'Sheer', value: string) {
     const rate = Number(numericInput(value)) || 0;
     const key = name.trim().toLocaleLowerCase();
+    setFabricCommonRates(current => ({ ...current, [layer + '|' + key]: value }));
     setItems(current => current.map(item => {
       const matchesLayer = layer === 'Sheer' ? item.type === 'Sheer' : item.type !== 'Sheer';
       const matches = item.product_type === 'curtains' && matchesLayer && (item.fabric_type ?? '').trim().toLocaleLowerCase() === key;
@@ -180,6 +183,7 @@ export default function NewQuotation() {
     setItems(current => current.map(item => item.id === id ? { ...item, price: rate, total: calculateTotal(item.quantity, rate) } : item));
   }
   function applyCommonLiningRate(value: string) {
+    setCommonLiningRate(value);
     const rate = Number(numericInput(value)) || 0;
     setItems(current => current.map(item => item.product_type === 'curtains' && item.type !== 'Sheer' && !!item.lining_type
       ? { ...item, lining_price: rate, lining_total: calculateTotal(Number(item.lining_quantity ?? item.quantity) || 0, rate) }
@@ -572,7 +576,7 @@ export default function NewQuotation() {
           return <View key={group.layer + group.name} style={{ backgroundColor: colors.chipBg, borderRadius: 10, padding: 10, marginTop: 9 }}>
             <Text style={{ color: colors.navy, fontWeight: '800', marginBottom: 4 }}>{group.layer} Fabric — {group.name}</Text>
             <Text style={styles.formulaNote}>Total required: {group.quantity.toFixed(2)} mtr</Text>
-            <Field label="Common Fabric Rate / mtr (₹)" value={String(commonRate)} onChangeText={v => applyFabricGroupRate(group.name, group.layer, v)} keyboardType="decimal-pad" placeholder="Enter common rate"/>
+            <Field label="Common Fabric Rate / mtr (₹)" value={fabricCommonRates[group.layer + '|' + group.name.trim().toLocaleLowerCase()] ?? String(commonRate)} onChangeText={v => applyFabricGroupRate(group.name, group.layer, v)} keyboardType="decimal-pad" placeholder="Enter common rate"/>
             {matched.map(item => <View key={item.id} style={{ marginTop: 5 }}>
               <Field label={`${item.area_name || 'Room'} — Individual Rate Override / mtr (₹)`} value={String(item.price ?? '')} onChangeText={v => updateFabricItemRate(item.id, v)} keyboardType="decimal-pad"/>
               <Text style={styles.formulaNote}>{Number(item.quantity || 0).toFixed(2)} mtr × ₹{Number(item.price || 0).toFixed(2)} = {formatINR(calculateTotal(item.quantity, item.price))}</Text>
@@ -584,7 +588,7 @@ export default function NewQuotation() {
         {liningItems.length ? <>
           <Text style={[styles.chargeTitle, { marginTop: 16 }]}>Lining Rate — Common Rate</Text>
           <Text style={styles.formulaNote}>இந்த rate எல்லா Semi / Blackout lining items-க்கும் apply ஆகும். Room-wise rate தனியாக மாற்றலாம்.</Text>
-          <Field label="Common Lining Rate / mtr (₹)" value={String(liningItems[0]?.lining_price ?? 0)} onChangeText={applyCommonLiningRate} keyboardType="decimal-pad" placeholder="Enter common lining rate"/>
+          <Field label="Common Lining Rate / mtr (₹)" value={commonLiningRate !== '' ? commonLiningRate : String(liningItems[0]?.lining_price ?? 0)} onChangeText={applyCommonLiningRate} keyboardType="decimal-pad" placeholder="Enter common lining rate"/>
           {liningItems.map(item => {
             const qty = Number(item.lining_quantity ?? item.quantity) || 0;
             const rate = Number(item.lining_price) || 0;
