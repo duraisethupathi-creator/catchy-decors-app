@@ -79,18 +79,82 @@ export default function Customers() {
     ]);
     const photos = quotations.flatMap(q => (q.reference_photos ?? []).map(photo => ({ ...photo, quotation_number: q.quotation_number })));
     const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-    const measurementRows = measurements.map((m, i) => {
-      const fabric = [m.fabric_type, m.fabric_area ? `Fabric area: ${m.fabric_area} sq.ft` : '', m.fabric_quantity_mtr ? `Fabric: ${m.fabric_quantity_mtr} mtr` : ''].filter(Boolean).join(' · ');
-      const lining = [m.lining_type, m.lining_fabric, m.lining_quantity ? `${m.lining_quantity} mtr` : ''].filter(Boolean).join(' · ');
-      return `<tr><td>${i+1}</td><td>${esc(m.area_name)}</td><td>${esc(getProduct(m.product_type).name)} ${esc(m.type || '')}</td><td>${esc(m.width)} × ${esc(m.height)} ${esc(m.measurement_unit || 'inch')}</td><td>${esc(m.part ?? '')}</td><td>${esc(fabric)}</td><td>${esc(lining)}</td><td>${Number(m.quantity || 0).toFixed(2)}</td></tr>`;
+
+    const prettyValue = (v: unknown) => esc(v === undefined || v === null || v === '' ? '-' : v);
+    const measurementCards = measurements.map((m, i) => {
+      let mosquito: Record<string, unknown> | null = null;
+      const rawFabric = String(m.fabric_type ?? '');
+      if (rawFabric.trim().startsWith('{')) {
+        try {
+          const parsed = JSON.parse(rawFabric);
+          if (parsed && parsed.__mosquitoMeta) mosquito = parsed;
+        } catch {}
+      }
+      const fabricText = mosquito ? '' : rawFabric;
+      const productName = `${getProduct(m.product_type).name}${m.type ? ` — ${m.type}` : ''}`;
+      const size = [m.width, m.height].some(v => v !== undefined && v !== null && v !== '')
+        ? `${m.width ?? '-'} × ${m.height ?? '-'} ${m.measurement_unit || 'inch'}` : '-';
+      const fabricDetails = [
+        fabricText,
+        m.fabric_area ? `Area: ${m.fabric_area} sq.ft` : '',
+        m.fabric_quantity_mtr ? `Fabric: ${m.fabric_quantity_mtr} mtr` : '',
+      ].filter(Boolean).join(' · ');
+      const liningDetails = [
+        m.lining_type, m.lining_fabric,
+        m.lining_quantity ? `${m.lining_quantity} mtr` : '',
+      ].filter(Boolean).join(' · ');
+      const mosquitoDetails = mosquito ? [
+        mosquito.description ? `Net: ${mosquito.description}` : '',
+        mosquito.frameColor ? `Frame: ${mosquito.frameColor}` : '',
+        mosquito.openMethod ? `Opening: ${mosquito.openMethod}` : '',
+        mosquito.doorSplitCount ? `Door splits: ${mosquito.doorSplitCount}` : '',
+        mosquito.leftOpenCount !== undefined ? `Left open: ${mosquito.leftOpenCount}` : '',
+        mosquito.rightOpenCount !== undefined ? `Right open: ${mosquito.rightOpenCount}` : '',
+        Number(mosquito.additionalSqft || 0) ? `Extra area: ${mosquito.additionalSqft} sq.ft` : '',
+      ].filter(Boolean).join('  |  ') : '';
+      const detail = (label: string, value: string) => value ? `<div class="detail"><span class="label">${label}</span><span class="value">${esc(value)}</span></div>` : '';
+      return `<article class="item"><div class="itemhead"><span class="itemno">${i+1}</span><div><div class="room">${prettyValue(m.area_name || 'General Area')}</div><div class="product">${esc(productName)}</div></div><div class="qty"><small>QTY</small><b>${Number(m.quantity || 0).toFixed(2)}</b></div></div><div class="grid">${detail('Measurement',size)}${detail('Part',m.part !== undefined && m.part !== null ? String(m.part) : '')}${detail('Fabric / Material',fabricDetails)}${detail('Lining',liningDetails)}${detail('Mosquito details',mosquitoDetails)}</div></article>`;
     }).join('');
-    const accessoryRows = accessories.map((a, i) => `<tr><td>${i+1}</td><td>${esc(a.area_name)}</td><td>${esc(a.track_type)}</td><td>${esc(a.width)} inch</td><td>${esc(a.part ?? '')}</td><td>${Number(a.quantity || 0).toFixed(2)}</td><td>₹${Number(a.price || 0).toLocaleString('en-IN')}</td><td>₹${Number(a.total || 0).toLocaleString('en-IN')}</td></tr>`).join('');
+    const accessoryCards = accessories.map((a, i) => `<article class="accessory"><div class="itemhead"><span class="itemno">${i+1}</span><div><div class="room">${prettyValue(a.area_name || 'General Area')}</div><div class="product">${prettyValue(a.track_type)}</div></div><div class="qty"><small>QTY</small><b>${Number(a.quantity || 0).toFixed(2)}</b></div></div><div class="accessorygrid"><div><small>Width</small><b>${prettyValue(a.width)} inch</b></div><div><small>Part</small><b>${prettyValue(a.part)}</b></div><div><small>Rate</small><b>₹${Number(a.price || 0).toLocaleString('en-IN')}</b></div><div><small>Amount</small><b>₹${Number(a.total || 0).toLocaleString('en-IN')}</b></div></div></article>`).join('');
     const photoHtml = photos.map(p => `<div style="margin:14px 0;page-break-inside:avoid"><b>${esc(p.area_name || 'General')} — ${esc(p.label || 'Reference Photo')}</b><div>${esc(p.quotation_number || '')}</div><img style="max-width:100%;max-height:220px;object-fit:contain" src="${p.data_uri}"/></div>`).join('');
     if (!measurements.length && !accessories.length && !photos.length) {
       Alert.alert('No work details', 'இந்த customer-க்கு measurements, accessories அல்லது photos எதுவும் இல்லை.');
       return;
     }
-    const html = `<!doctype html><html><head><meta charset="utf-8"/><style>@page{size:A4;margin:12mm}body{font-family:Arial;color:#17213d;font-size:10px}h1,h2{color:#101D4A}table{width:100%;border-collapse:collapse;margin:10px 0 20px}th{background:#101D4A;color:white}th,td{padding:6px;border:1px solid #ddd;text-align:left;vertical-align:top}tr{page-break-inside:avoid}</style></head><body><h1>CATCHY DECORS</h1><h2>Customer Work Details</h2><b>${esc(c.name)}</b><br/>${esc(c.phone)}<br/>${esc(c.address || '')}<h2>Measurements & Fabric Details</h2>${measurements.length ? `<table><tr><th>#</th><th>Area</th><th>Product</th><th>Size</th><th>Part</th><th>Fabric</th><th>Lining</th><th>Qty</th></tr>${measurementRows}</table>` : '<p>No measurement records.</p>'}<h2>Accessories Details</h2>${accessories.length ? `<table><tr><th>#</th><th>Area</th><th>Accessory</th><th>Width</th><th>Part</th><th>Qty</th><th>Rate</th><th>Amount</th></tr>${accessoryRows}</table>` : '<p>No accessories records.</p>'}<h2>Attached Reference Photos</h2>${photoHtml || '<p>No reference photos attached.</p>'}</body></html>`;
+    const html = `<!doctype html><html><head><meta charset="utf-8"/><style>
+      @page{size:A4;margin:13mm}
+      *{box-sizing:border-box}
+      body{font-family:Arial,sans-serif;color:#1d2945;font-size:11px;line-height:1.4;margin:0}
+      .brand{font-size:20px;font-weight:800;letter-spacing:.5px;color:#101d4a;margin:0 0 3px}
+      .subtitle{font-size:15px;font-weight:700;margin:0 0 12px;color:#101d4a}
+      .customer{background:#f2f5fb;border:1px solid #dce3ef;border-radius:8px;padding:10px 12px;margin-bottom:16px}
+      .customer strong{font-size:14px}.muted{color:#66718a;margin-top:3px}
+      h2{font-size:14px;color:#101d4a;border-bottom:2px solid #e4e9f2;padding-bottom:5px;margin:18px 0 10px}
+      .item,.accessory{border:1px solid #d8dfeb;border-radius:8px;margin:0 0 9px;padding:9px 10px;page-break-inside:avoid;break-inside:avoid}
+      .itemhead{display:flex;align-items:center;gap:9px;border-bottom:1px solid #edf0f5;padding-bottom:7px;margin-bottom:7px}
+      .itemno{background:#101d4a;color:#fff;border-radius:5px;min-width:24px;height:24px;text-align:center;padding-top:4px;font-weight:700}
+      .room{font-size:12px;font-weight:700;color:#101d4a}.product{font-size:11px;color:#47536d;margin-top:2px}
+      .qty{margin-left:auto;text-align:right;min-width:48px}.qty small,.accessorygrid small{display:block;color:#71809a;font-size:8px;font-weight:700;letter-spacing:.5px}.qty b{font-size:13px;color:#101d4a}
+      .grid{display:grid;grid-template-columns:1fr 1fr;gap:7px 12px}
+      .detail{min-width:0}.label{display:block;font-size:8px;text-transform:uppercase;letter-spacing:.4px;color:#7b8497;font-weight:700;margin-bottom:2px}.value{font-size:10px;color:#202b43;overflow-wrap:anywhere}
+      .accessorygrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.accessorygrid b{font-size:10px;color:#202b43}
+      .empty{color:#768198;font-style:italic;padding:8px 2px}
+      .photo{margin:12px 0 16px;page-break-inside:avoid;break-inside:avoid;border:1px solid #d8dfeb;border-radius:8px;padding:9px}
+      .photo img{display:block;max-width:100%;max-height:260px;object-fit:contain;margin-top:7px}
+      .photoTitle{font-weight:700;color:#101d4a}.photoMeta{font-size:9px;color:#71809a}
+      .footer{margin-top:18px;padding-top:8px;border-top:1px solid #e5e9f0;font-size:8px;color:#8791a3;text-align:center}
+    </style></head><body>
+      <div class="brand">CATCHY DECORS</div><div class="subtitle">Customer Work Details</div>
+      <div class="customer"><strong>${esc(c.name)}</strong><div class="muted">${esc(c.phone)} ${c.address ? ` · ${esc(c.address)}` : ''}</div>${c.site_location ? `<div class="muted">Site: ${esc(c.site_location)}</div>` : ''}</div>
+      <h2>Measurements & Fabric Details (${measurements.length})</h2>
+      ${measurements.length ? measurementCards : '<div class="empty">No measurement records.</div>'}
+      <h2>Accessories Details (${accessories.length})</h2>
+      ${accessories.length ? accessoryCards : '<div class="empty">No accessories records.</div>'}
+      <h2>Attached Reference Photos (${photos.length})</h2>
+      ${photoHtml || '<div class="empty">No reference photos attached.</div>'}
+      <div class="footer">Catchy Decors · Customer Work Details</div>
+    </body></html>`;
+
     const file = await Print.printToFileAsync({ html });
     try {
       const contentUri = await (await import('expo-file-system')).getContentUriAsync(file.uri);
