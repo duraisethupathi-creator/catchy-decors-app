@@ -122,27 +122,27 @@ export default function Customers() {
       return;
     }
     const html = `<!doctype html><html><head><meta charset="utf-8"/><style>
-      @page{size:A4;margin:13mm}
+      @page{size:A4;margin:9mm}
       *{box-sizing:border-box}
-      body{font-family:Arial,sans-serif;color:#1d2945;font-size:11px;line-height:1.4;margin:0}
-      .brand{font-size:20px;font-weight:800;letter-spacing:.5px;color:#101d4a;margin:0 0 3px}
-      .subtitle{font-size:15px;font-weight:700;margin:0 0 12px;color:#101d4a}
-      .customer{background:#f2f5fb;border:1px solid #dce3ef;border-radius:8px;padding:10px 12px;margin-bottom:16px}
-      .customer strong{font-size:14px}.muted{color:#66718a;margin-top:3px}
-      h2{font-size:14px;color:#101d4a;border-bottom:2px solid #e4e9f2;padding-bottom:5px;margin:18px 0 10px}
-      .item,.accessory{border:1px solid #d8dfeb;border-radius:8px;margin:0 0 9px;padding:9px 10px;page-break-inside:avoid;break-inside:avoid}
-      .itemhead{display:flex;align-items:center;gap:9px;border-bottom:1px solid #edf0f5;padding-bottom:7px;margin-bottom:7px}
-      .itemno{background:#101d4a;color:#fff;border-radius:5px;min-width:24px;height:24px;text-align:center;padding-top:4px;font-weight:700}
-      .room{font-size:12px;font-weight:700;color:#101d4a}.product{font-size:11px;color:#47536d;margin-top:2px}
-      .qty{margin-left:auto;text-align:right;min-width:48px}.qty small,.accessorygrid small{display:block;color:#71809a;font-size:8px;font-weight:700;letter-spacing:.5px}.qty b{font-size:13px;color:#101d4a}
-      .grid{display:grid;grid-template-columns:1fr 1fr;gap:7px 12px}
-      .detail{min-width:0}.label{display:block;font-size:8px;text-transform:uppercase;letter-spacing:.4px;color:#7b8497;font-weight:700;margin-bottom:2px}.value{font-size:10px;color:#202b43;overflow-wrap:anywhere}
-      .accessorygrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.accessorygrid b{font-size:10px;color:#202b43}
+      body{font-family:Arial,sans-serif;color:#1d2945;font-size:10px;line-height:1.25;margin:0}
+      .brand{font-size:18px;font-weight:800;letter-spacing:.4px;color:#101d4a;margin:0 0 2px}
+      .subtitle{font-size:13px;font-weight:700;margin:0 0 7px;color:#101d4a}
+      .customer{background:#f2f5fb;border:1px solid #dce3ef;border-radius:8px;padding:7px 9px;margin-bottom:9px}
+      .customer strong{font-size:12px}.muted{color:#66718a;margin-top:3px}
+      h2{font-size:12px;color:#101d4a;border-bottom:1.5px solid #e4e9f2;padding-bottom:3px;margin:11px 0 6px}
+      .item,.accessory{border:1px solid #d8dfeb;border-radius:8px;margin:0 0 5px;padding:6px 7px;page-break-inside:avoid;break-inside:avoid}
+      .itemhead{display:flex;align-items:center;gap:6px;border-bottom:1px solid #edf0f5;padding-bottom:4px;margin-bottom:4px}
+      .itemno{background:#101d4a;color:#fff;border-radius:5px;min-width:20px;height:20px;text-align:center;padding-top:3px;font-weight:700}
+      .room{font-size:11px;font-weight:700;color:#101d4a}.product{font-size:10px;color:#47536d;margin-top:2px}
+      .qty{margin-left:auto;text-align:right;min-width:48px}.qty small,.accessorygrid small{display:block;color:#71809a;font-size:7px;font-weight:700;letter-spacing:.3px}.qty b{font-size:11px;color:#101d4a}
+      .grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 9px}
+      .detail{min-width:0}.label{display:block;font-size:7px;text-transform:uppercase;letter-spacing:.3px;color:#7b8497;font-weight:700;margin-bottom:2px}.value{font-size:9px;color:#202b43;overflow-wrap:anywhere}
+      .accessorygrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}.accessorygrid b{font-size:9px;color:#202b43}
       .empty{color:#768198;font-style:italic;padding:8px 2px}
-      .photo{margin:12px 0 16px;page-break-inside:avoid;break-inside:avoid;border:1px solid #d8dfeb;border-radius:8px;padding:9px}
-      .photo img{display:block;max-width:100%;max-height:260px;object-fit:contain;margin-top:7px}
+      .photo{margin:7px 0 9px;page-break-inside:avoid;break-inside:avoid;border:1px solid #d8dfeb;border-radius:8px;padding:9px}
+      .photo img{display:block;max-width:100%;max-height:180px;object-fit:contain;margin-top:7px}
       .photoTitle{font-weight:700;color:#101d4a}.photoMeta{font-size:9px;color:#71809a}
-      .footer{margin-top:18px;padding-top:8px;border-top:1px solid #e5e9f0;font-size:8px;color:#8791a3;text-align:center}
+      .footer{margin-top:10px;padding-top:5px;border-top:1px solid #e5e9f0;font-size:8px;color:#8791a3;text-align:center}
     </style></head><body>
       <div class="brand">CATCHY DECORS</div><div class="subtitle">Customer Work Details</div>
       <div class="customer"><strong>${esc(c.name)}</strong><div class="muted">${esc(c.phone)} ${c.address ? ` · ${esc(c.address)}` : ''}</div>${c.site_location ? `<div class="muted">Site: ${esc(c.site_location)}</div>` : ''}</div>
